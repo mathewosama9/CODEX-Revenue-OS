@@ -50,7 +50,8 @@
 لو ميزة ملقيتهاش عند منافس، تتكتب **"غير مؤكدة"**، مش "غير موجودة".
 
 ## الـStack (حسب الـspine §8، والـADRs بتتكتب في `docs/adr/`)
-- App: **Laravel 13 Modular Monolith** + **Inertia 3 + React 19 + TS + Tailwind 4 + shadcn/ui** (React starter kit بـTeams). **Next.js مرفوض للتطبيق** (ممكن لموقع التسويق بعدين).
+- Backend: **Laravel 13 Modular Monolith** كـ**API** (`/api/v1`، Sanctum SPA auth).
+- Frontend: **Next.js + TS + Tailwind** في تطبيق منفصل، **قرار المؤسس 2026-10-25** ([ADR-002](docs/adr/ADR-002-frontend-nextjs.md)). الواجهة بتتبني بعد ما P1 backend يخلص. الـscaffold بتاع Inertia/React مؤقت، **ممنوع تبني عليه شاشات جديدة**.
 - Database: **PostgreSQL + pgvector**. Queues: Redis + Horizon (من S1)، و`scheduled_actions` مصدر الحقيقة لأي تأخير.
 - AI: من P2 بس، عن طريق Laravel AI SDK ورا `AiGateway`. مفيش Python ولا LangGraph في الـMVP.
 - Admin: Filament داخلي. Hosting: GCP Dammam (Frankfurt مؤقت).
