@@ -5,6 +5,7 @@ namespace App\Modules\Messaging;
 use App\Modules\Messaging\Models\Message;
 use App\Modules\Messaging\Models\MessageTemplate;
 use App\Modules\Messaging\Models\WhatsAppNumber;
+use Carbon\CarbonImmutable;
 
 /**
  * Public read API of M03 for other modules.
@@ -53,6 +54,17 @@ class Messaging
                 'at' => $message->created_at->toIso8601String(),
             ])
             ->all());
+    }
+
+    public function forgetSubject(string $subjectHash): int
+    {
+        return Message::query()->where('subject_hash', $subjectHash)->update(['body' => null]);
+    }
+
+    /** Retention: message text older than the window is dropped; metadata stays. */
+    public function purgeBodiesBefore(CarbonImmutable $cutoff): int
+    {
+        return Message::query()->whereNotNull('body')->where('created_at', '<', $cutoff)->update(['body' => null]);
     }
 
     public function canSendMarketing(string $purpose): bool

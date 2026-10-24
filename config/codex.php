@@ -40,6 +40,16 @@ return [
     'usd_to_sar' => 3.75,
 
     /*
+    | Retention defaults (M10). [افتراض] Final windows come from the legal
+    | opinion and the DPA; audit_events and consent_records are kept.
+    */
+    'retention' => [
+        'webhook_payload_days' => 30,
+        'message_body_days' => 90,
+        'conversation_note_days' => 365,
+    ],
+
+    /*
     | Promotional quiet hours (CST anti-spam rules, applied to WhatsApp by
     | default — spine §7.5). Times are local to `timezone`; a window whose
     | start is after its end crosses midnight.

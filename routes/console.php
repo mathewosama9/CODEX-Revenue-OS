@@ -3,9 +3,12 @@
 use App\Models\TeamInvitation;
 use App\Modules\Commerce\Jobs\ReconcileStore;
 use App\Modules\Commerce\Jobs\RefreshStoreToken;
+use App\Modules\Compliance\Jobs\PurgeExpiredData;
 use App\Modules\Measurement\Jobs\WeeklyMeasurement;
 use App\Modules\Recovery\ScheduledActionDispatcher;
 use App\Shared\Integrations\TenantRoute;
+use App\Shared\Webhooks\WebhookEvent;
+use App\Shared\Webhooks\WebhookStatus;
 use Illuminate\Support\Facades\Schedule;
 
 Schedule::call(function () {
@@ -50,3 +53,19 @@ Schedule::call(function () {
     }
 })->weeklyOn(0, '03:00')->name('measurement:weekly')->withoutOverlapping()
     ->description('SRM check and weekly profit report snapshot');
+
+/*
+| Compliance (M10): daily retention. Raw webhook payloads (platform-level,
+| PII) go first; per-tenant message text and notes follow.
+*/
+Schedule::call(function () {
+    WebhookEvent::query()
+        ->where('received_at', '<', now()->subDays((int) config('codex.retention.webhook_payload_days')))
+        ->whereIn('status', [WebhookStatus::Processed, WebhookStatus::Unhandled])
+        ->delete();
+
+    foreach (array_unique([...TenantRoute::tenantsFor(TenantRoute::SALLA), ...TenantRoute::tenantsFor(TenantRoute::META)]) as $tenantId) {
+        PurgeExpiredData::dispatch($tenantId);
+    }
+})->dailyAt('01:30')->name('compliance:retention')->withoutOverlapping()
+    ->description('Delete data past its retention window');

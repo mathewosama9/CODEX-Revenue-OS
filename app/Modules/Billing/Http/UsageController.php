@@ -24,6 +24,11 @@ class UsageController
         if (($validated['format'] ?? 'json') === 'csv') {
             return response()->streamDownload(function () use ($usage, $validated) {
                 $out = fopen('php://output', 'w');
+
+                if ($out === false) {
+                    return;
+                }
+
                 fputcsv($out, ['month', 'metric', 'count']);
                 foreach ($usage as $metric => $count) {
                     fputcsv($out, [$validated['month'], $metric, $count]);
