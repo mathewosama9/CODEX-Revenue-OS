@@ -32,25 +32,33 @@
 3. مصدر الموافقة التسويقية (consent) ممكن يقلّل السلات المؤهلة.
 
 ## 6. البناء
-**Sprint S0 (Setup)** — ✅ خلص، على branch `feat/S0-setup` (اتعمله push):
-- Laravel 13 + Inertia 3 + React 19 + Teams، وPostgreSQL 17 + pgvector (Docker).
-- طبقة العزل بين التجار (`app/Shared/Tenancy`) + isolation suite + arch tests لحدود الـModules.
-- ثيم البراند (Navy/Light)، وخطوط Plex Arabic وRubik، وRTL افتراضي، وفحص RTL في الـCI.
-- مكوّنات البراند: زرار Revenue، وKpiCard، وDeltaBadge، وRangeEstimate.
+**P1 Backend — ✅ خلص** على branch `feat/S1-foundation` (2026-10-25). `composer ci:check` أخضر: **269 test**، وPHPStan، والـformatting، والـRTL.
 
-**Sprint S1 (Foundation)** — شغال على branch `feat/S1-foundation`:
-- ✅ الأدوار Owner وAgent بس، بمصفوفة الصلاحيات (09 §9.13) (E01).
-- ✅ `audit_events` append-only ومحمي من الداتابيز نفسها (trigger)، ومن غير PII (E15).
-- ✅ Consent ledger append-only + `ConsentGate` + كشف كلمات الإيقاف بالعربي + quiet hours بما فيها رمضان (E04).
-- ✅ استقبال webhooks سلة: توقيع HMAC، وكل event بيتسجل مرة واحدة، والمحتوى متشفّر (E02).
-- `composer ci:check` أخضر (184 test).
-- ⏳ **مستني بيانات سلة** عشان باقي E02: OAuth (Easy Mode)، وrefresh الـtoken بـlock، والـreconciliation polling.
+| Epic | الحالة |
+|---|---|
+| E01 Workspace + أدوار Owner/Agent | ✅ |
+| E02 Salla Adapter (install، webhooks، token refresh بـlock، reconciliation، backfill) | ✅ (محتاج spike حي) |
+| E03 WhatsApp (Embedded Signup، MM API، webhooks، opt-out، الجودة) | ✅ (محتاج spike حي) |
+| E04 Consent + opt-out عربي + quiet hours ورمضان | ✅ |
+| E05 Recovery workflow + سياسة الخصم + الموافقات | ✅ |
+| E06 Holdout + exposures + cost ledger | ✅ |
+| E07 Incremental Profit Report (نطاق + احتمال + حكم + SRM + snapshots) | ✅ |
+| E08 الهامش لكل فئة | ✅ |
+| E12a Handoff Inbox lite | ✅ |
+| E13a Usage metering | ✅ |
+| E14 Admin داخلي (Filament + 2FA + صحة المتاجر + kill switch) | ✅ |
+| E15 Security (audit append-only، تشفير، redaction، retention، طلبات البيانات) | ✅ |
+| **الواجهة (Next.js)** | ⏳ بعد مراجعة P1 ([ADR-002](docs/adr/ADR-002-frontend-nextjs.md)) |
+
+دليل الاختبار: [docs/phases/P1/testing-guide.md](docs/phases/P1/testing-guide.md).
 
 ## 7. قرارات مستنية المؤسس
-- اعتماد الـBlueprint رسميًا: المؤسس قال "ابدأ" يوم 2026-10-25، ولسه محتاج توثيق في Gate issue.
-- بيانات Salla Partners: الـClient ID والـSecret والـWebhook secret للـdemo store.
-- ملفات اللوجو (SVG) من البراند.
-- مواعيد رمضان 1448 في `config/codex.php` تقديرية، ومحتاجة تأكيد من تقويم أم القرى.
+- مراجعة P1 ودمج الـbranches في `main`.
+- بيانات Salla Partners وMeta (في `.env`) عشان الـspikes الحية.
+- ADR-006: منطقة تخزين واتساب (AE ولا BH)، **ومينفعش تتغير بعدين**.
+- ADR-005: الاستضافة.
+- مراجعة نصوص قوالب الواتساب العربي من متحدث سعودي.
+- مواعيد رمضان 1448، ومدد الـretention (بعد الرأي القانوني).
 
 ## 8. الصرف
 P0: 0 من 25–50 ألف ريال.

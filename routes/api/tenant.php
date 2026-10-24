@@ -3,6 +3,7 @@
 use App\Enums\TeamPermission;
 use App\Http\Middleware\EnsureTeamPermission;
 use App\Modules\Billing\Http\UsageController;
+use App\Modules\Compliance\Http\DataRequestController;
 use App\Modules\Inbox\Http\InboxController;
 use App\Modules\Measurement\Http\MarginsController;
 use App\Modules\Measurement\Http\ProfitReportController;
@@ -56,3 +57,7 @@ Route::prefix('inbox')->middleware(EnsureTeamPermission::using(TeamPermission::U
 Route::get('billing/usage', UsageController::class)
     ->middleware(EnsureTeamPermission::using(TeamPermission::ManageBilling))
     ->name('billing.usage');
+
+Route::post('data-requests', DataRequestController::class)
+    ->middleware(EnsureTeamPermission::using(TeamPermission::ManageDataRequests))
+    ->name('data-requests');

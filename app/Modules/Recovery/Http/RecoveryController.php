@@ -9,7 +9,6 @@ use App\Modules\Recovery\GoLiveChecklist;
 use App\Modules\Recovery\Models\DiscountApproval;
 use App\Modules\Recovery\Models\RecoverySettings;
 use App\Modules\Recovery\RecoveryControls;
-use App\Modules\Recovery\RecoveryLifecycle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -18,7 +17,6 @@ class RecoveryController
 {
     public function __construct(
         private readonly GoLiveChecklist $checklist,
-        private readonly RecoveryLifecycle $lifecycle,
         private readonly AuditLogger $audit,
     ) {}
 

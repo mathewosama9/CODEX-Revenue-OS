@@ -121,6 +121,32 @@ class Commerce
         return is_string($phone) ? substr($phone, 0, 5).str_repeat('•', max(0, strlen($phone) - 8)).substr($phone, -3) : null;
     }
 
+    /**
+     * Data-subject export (PDPL): what we hold about this customer.
+     *
+     * @return array<string, mixed>
+     */
+    public function exportSubject(string $phoneHash): array
+    {
+        return [
+            'customers' => Customer::query()->where('phone_hash', $phoneHash)->get(['external_id', 'phone', 'created_at'])
+                ->map(fn (Customer $customer) => ['external_id' => $customer->external_id, 'phone' => $customer->phone])->all(),
+            'carts' => Cart::query()->where('phone_hash', $phoneHash)->get(['external_id', 'total_halalas', 'status', 'abandoned_at'])->toArray(),
+            'orders' => Order::query()->where('phone_hash', $phoneHash)->get(['external_id', 'total_halalas', 'status', 'placed_at'])->toArray(),
+        ];
+    }
+
+    /**
+     * Data-subject deletion: drop the phone; orders stay for the merchant's
+     * accounting, linked only by an unreadable hash.
+     */
+    public function forgetSubject(string $phoneHash): int
+    {
+        Cart::query()->where('phone_hash', $phoneHash)->update(['checkout_url' => null]);
+
+        return Customer::query()->where('phone_hash', $phoneHash)->update(['phone' => null]);
+    }
+
     public function hasOrderedBefore(string $phoneHash, CarbonImmutable $before): bool
     {
         return Order::query()
