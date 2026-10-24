@@ -1,5 +1,20 @@
-import { AppShell } from '@/components/app-shell';
+import { Suspense } from 'react';
 
+import { AppShell } from '@/components/app-shell';
+import { Spinner } from '@/components/ui/spinner';
+
+// The workspace comes from the URL and the data from the browser session, so
+// the static shell is just a spinner; everything else streams in.
 export default function TeamLayout({ children }: LayoutProps<'/[locale]/t/[team]'>) {
-    return <AppShell>{children}</AppShell>;
+    return (
+        <Suspense
+            fallback={
+                <div className="flex min-h-screen items-center justify-center">
+                    <Spinner />
+                </div>
+            }
+        >
+            <AppShell>{children}</AppShell>
+        </Suspense>
+    );
 }
