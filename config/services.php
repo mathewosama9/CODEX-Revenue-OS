@@ -35,6 +35,15 @@ return [
         ],
     ],
 
+    'meta' => [
+        'app_id' => env('META_APP_ID'),
+        'app_secret' => env('META_APP_SECRET'),
+        'webhook_verify_token' => env('META_WEBHOOK_VERIFY_TOKEN'),
+        'graph_base' => env('META_GRAPH_BASE', 'https://graph.facebook.com/v24.0/'),
+        // ADR-006, irreversible per number: AE or BH. Registration refuses to run while empty.
+        'data_localization_region' => env('META_DATA_LOCALIZATION_REGION'),
+    ],
+
     'salla' => [
         'client_id' => env('SALLA_CLIENT_ID'),
         'client_secret' => env('SALLA_CLIENT_SECRET'),

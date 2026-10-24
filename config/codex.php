@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Commerce\Salla\SallaWebhookHandler;
+use App\Modules\Messaging\Meta\MetaWebhookHandler;
 
 return [
 
@@ -39,6 +40,7 @@ return [
     */
     'webhook_handlers' => [
         'salla' => SallaWebhookHandler::class,
+        'meta' => MetaWebhookHandler::class,
     ],
 
 ];
