@@ -1,0 +1,29 @@
+# Local development services. Production hosting is decided in ADR-005 (GCP Dammam / Frankfurt fallback).
+services:
+    pgsql:
+        image: pgvector/pgvector:pg17
+        ports:
+            - '${FORWARD_DB_PORT:-54320}:5432'
+        environment:
+            POSTGRES_DB: '${DB_DATABASE:-codex}'
+            POSTGRES_USER: '${DB_USERNAME:-codex}'
+            POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
+        volumes:
+            - pgsql-data:/var/lib/postgresql/data
+            - ./docker/pgsql/create-testing-database.sql:/docker-entrypoint-initdb.d/10-create-testing-database.sql
+        healthcheck:
+            test:
+                [
+                    'CMD',
+                    'pg_isready',
+                    '-q',
+                    '-d',
+                    '${DB_DATABASE:-codex}',
+                    '-U',
+                    '${DB_USERNAME:-codex}',
+                ]
+            interval: 5s
+            retries: 10
+
+volumes:
+    pgsql-data:
