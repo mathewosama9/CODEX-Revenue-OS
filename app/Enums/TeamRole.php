@@ -4,9 +4,9 @@ namespace App\Enums;
 
 enum TeamRole: string
 {
+    // The MVP has exactly two roles (spine §4.1). Advanced RBAC is M21 (P6).
     case Owner = 'owner';
-    case Admin = 'admin';
-    case Member = 'member';
+    case Agent = 'agent';
 
     /**
      * Get the display label for the role.
@@ -25,12 +25,11 @@ enum TeamRole: string
     {
         return match ($this) {
             self::Owner => TeamPermission::cases(),
-            self::Admin => [
-                TeamPermission::UpdateTeam,
-                TeamPermission::CreateInvitation,
-                TeamPermission::CancelInvitation,
+            self::Agent => [
+                TeamPermission::UseInbox,
+                TeamPermission::ReviewAiDrafts,
+                TeamPermission::UseKillSwitch,
             ],
-            self::Member => [],
         };
     }
 
@@ -49,9 +48,8 @@ enum TeamRole: string
     public function level(): int
     {
         return match ($this) {
-            self::Owner => 3,
-            self::Admin => 2,
-            self::Member => 1,
+            self::Owner => 2,
+            self::Agent => 1,
         };
     }
 

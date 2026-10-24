@@ -50,8 +50,8 @@ it('puts every module model behind the tenant scope', function () {
             continue;
         }
 
-        expect(class_uses_recursive($class))
-            ->toContain(BelongsToTenant::class, "{$class} is tenant-owned and must use BelongsToTenant.");
+        expect(in_array(BelongsToTenant::class, class_uses_recursive($class), true))
+            ->toBeTrue("{$class} is tenant-owned and must use BelongsToTenant.");
     }
 
     expect(true)->toBeTrue();
