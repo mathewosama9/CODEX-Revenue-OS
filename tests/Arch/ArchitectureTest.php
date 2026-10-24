@@ -10,7 +10,7 @@ const MODULES = [
 
 /** Cross-tenant tables (ADR-009). Each entry needs an ADR reference. */
 const TENANTLESS_MODELS = [
-    // 'App\Modules\Measurement\Models\PooledOutcome', // ADR-009
+    'App\Modules\Platform\Models\Admin', // CODEX staff, platform level (E14)
 ];
 
 /** Modules allowed to bypass the tenant scope (09 §9.4.2). */

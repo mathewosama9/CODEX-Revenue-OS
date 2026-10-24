@@ -8,6 +8,7 @@ use App\Modules\Recovery\ActionStatus;
 use App\Modules\Recovery\GoLiveChecklist;
 use App\Modules\Recovery\Models\DiscountApproval;
 use App\Modules\Recovery\Models\RecoverySettings;
+use App\Modules\Recovery\RecoveryControls;
 use App\Modules\Recovery\RecoveryLifecycle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -76,12 +77,9 @@ class RecoveryController
     }
 
     /** Kill switch: stops sending now; pending steps are cancelled, not deleted (US-E14-04). */
-    public function pause(Request $request): JsonResponse
+    public function pause(Request $request, RecoveryControls $controls): JsonResponse
     {
-        RecoverySettings::current()->update(['enabled' => false]);
-        $cancelled = $this->lifecycle->cancelWhere(fn () => null, 'paused');
-
-        $this->audit->record('recovery.paused', ActorType::User, $request->user()?->id, context: ['sequences_cancelled' => $cancelled]);
+        $controls->pause(ActorType::User, $request->user()?->id, 'merchant_kill_switch');
 
         return $this->show();
     }
