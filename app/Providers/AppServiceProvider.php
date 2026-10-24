@@ -8,10 +8,12 @@ use App\Modules\Commerce\Salla\SallaAdapter;
 use App\Modules\Commerce\Salla\SallaClient;
 use App\Modules\Compliance\AuditLogger;
 use App\Modules\Compliance\QuietHours;
+use App\Modules\Inbox\Listeners\OpenConversation;
 use App\Modules\Measurement\CostLedger;
 use App\Modules\Measurement\ExperimentAssigner;
 use App\Modules\Measurement\MarginLookup;
 use App\Modules\Measurement\ProfitReport;
+use App\Modules\Messaging\Events\InboundMessageReceived;
 use App\Modules\Messaging\Events\MessageDelivered;
 use App\Modules\Messaging\Listeners\BookDeliveryCost;
 use App\Modules\Messaging\Meta\MetaGraphClient;
@@ -106,6 +108,7 @@ class AppServiceProvider extends ServiceProvider
     {
         Event::listen(MessageDelivered::class, BookDeliveryCost::class);
         Event::subscribe(RecoveryListeners::class);
+        Event::listen(InboundMessageReceived::class, OpenConversation::class);
     }
 
     /**

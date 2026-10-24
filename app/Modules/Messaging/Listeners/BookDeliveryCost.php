@@ -2,6 +2,7 @@
 
 namespace App\Modules\Messaging\Listeners;
 
+use App\Modules\Billing\UsageMeter;
 use App\Modules\Measurement\CostLedger;
 use App\Modules\Messaging\Events\MessageDelivered;
 use App\Modules\Messaging\Models\Message;
@@ -16,6 +17,7 @@ class BookDeliveryCost
     public function __construct(
         private readonly TenantContext $tenants,
         private readonly CostLedger $ledger,
+        private readonly UsageMeter $usage,
     ) {}
 
     public function handle(MessageDelivered $event): void
@@ -26,6 +28,8 @@ class BookDeliveryCost
             if ($message === null || $message->subject_hash === null || $message->delivered_at === null) {
                 return;
             }
+
+            $this->usage->increment(UsageMeter::MESSAGES_DELIVERED.':'.($event->pricingCategory ?? 'unknown'), at: $message->delivered_at);
 
             $this->ledger->recordMessageDelivered(
                 "message:{$message->id}",
