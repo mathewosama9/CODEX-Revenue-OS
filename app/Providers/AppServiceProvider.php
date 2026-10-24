@@ -5,9 +5,15 @@ namespace App\Providers;
 use App\Modules\Commerce\CommerceAdapter;
 use App\Modules\Commerce\Salla\SallaAdapter;
 use App\Modules\Commerce\Salla\SallaClient;
+use App\Modules\Compliance\AuditLogger;
 use App\Modules\Compliance\QuietHours;
+use App\Modules\Measurement\CostLedger;
+use App\Modules\Measurement\ExperimentAssigner;
 use App\Modules\Measurement\MarginLookup;
+use App\Modules\Messaging\Events\MessageDelivered;
+use App\Modules\Messaging\Listeners\BookDeliveryCost;
 use App\Modules\Messaging\Meta\MetaGraphClient;
+use App\Modules\Recovery\Listeners\RecoveryListeners;
 use App\Shared\Phone\SubjectHasher;
 use App\Shared\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
@@ -15,6 +21,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -53,6 +60,16 @@ class AppServiceProvider extends ServiceProvider
             (int) config('codex.assumed_default_margin_bps'),
         ));
 
+        $this->app->bind(ExperimentAssigner::class, fn ($app) => new ExperimentAssigner(
+            (int) config('codex.measurement.default_holdout_bps'),
+            $app->make(AuditLogger::class),
+        ));
+
+        $this->app->bind(CostLedger::class, fn () => new CostLedger(
+            (array) config('codex.meta_rates_usd'),
+            (float) config('codex.usd_to_sar'),
+        ));
+
         $this->app->singleton(QuietHours::class, fn () => new QuietHours(
             config('codex.quiet_hours.timezone'),
             config('codex.quiet_hours.default'),
@@ -67,6 +84,16 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->registerModuleListeners();
+    }
+
+    /**
+     * Cross-module wiring: who reacts to which domain event (09 §9.8).
+     */
+    protected function registerModuleListeners(): void
+    {
+        Event::listen(MessageDelivered::class, BookDeliveryCost::class);
+        Event::subscribe(RecoveryListeners::class);
     }
 
     /**

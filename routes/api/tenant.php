@@ -4,6 +4,7 @@ use App\Enums\TeamPermission;
 use App\Http\Middleware\EnsureTeamPermission;
 use App\Modules\Measurement\Http\MarginsController;
 use App\Modules\Messaging\Http\WhatsAppController;
+use App\Modules\Recovery\Http\RecoveryController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -21,4 +22,18 @@ Route::prefix('whatsapp')->middleware(EnsureTeamPermission::using(TeamPermission
     Route::post('embedded-signup', [WhatsAppController::class, 'completeSignup'])->name('whatsapp.signup');
     Route::post('templates/submit-library', [WhatsAppController::class, 'submitTemplates'])->name('whatsapp.templates.submit');
     Route::post('templates/sync', [WhatsAppController::class, 'syncTemplates'])->name('whatsapp.templates.sync');
+});
+
+Route::prefix('recovery')->group(function () {
+    Route::middleware(EnsureTeamPermission::using(TeamPermission::ManageRecoverySettings))->group(function () {
+        Route::get('/', [RecoveryController::class, 'show'])->name('recovery.show');
+        Route::put('/', [RecoveryController::class, 'update'])->name('recovery.update');
+        Route::post('enable', [RecoveryController::class, 'enable'])->name('recovery.enable');
+        Route::post('pause', [RecoveryController::class, 'pause'])->name('recovery.pause');
+    });
+
+    Route::middleware(EnsureTeamPermission::using(TeamPermission::ManageDiscountPolicy))->group(function () {
+        Route::get('approvals', [RecoveryController::class, 'approvals'])->name('recovery.approvals');
+        Route::post('approvals/{approval}', [RecoveryController::class, 'decide'])->whereNumber('approval')->name('recovery.approvals.decide');
+    });
 });
