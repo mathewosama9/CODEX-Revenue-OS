@@ -28,7 +28,7 @@ class TeamInvitationTest extends TestCase
             ->actingAs($owner)
             ->post(route('teams.invitations.store', $team), [
                 'email' => 'invited@example.com',
-                'role' => TeamRole::Member->value,
+                'role' => TeamRole::Agent->value,
             ]);
 
         $response->assertRedirect(route('teams.edit', $team));
@@ -36,7 +36,7 @@ class TeamInvitationTest extends TestCase
         $this->assertDatabaseHas('team_invitations', [
             'team_id' => $team->id,
             'email' => 'invited@example.com',
-            'role' => TeamRole::Member->value,
+            'role' => TeamRole::Agent->value,
         ]);
     }
 
@@ -79,25 +79,25 @@ class TeamInvitationTest extends TestCase
         $this->assertStringContainsString('log in', strtolower(implode(' ', $mail->introLines)));
     }
 
-    public function test_team_invitations_can_be_created_by_admins()
+    public function test_team_invitations_cannot_be_created_by_agents()
     {
         Notification::fake();
 
         $owner = User::factory()->create();
-        $admin = User::factory()->create();
+        $agent = User::factory()->create();
         $team = Team::factory()->create();
 
         $team->members()->attach($owner, ['role' => TeamRole::Owner->value]);
-        $team->members()->attach($admin, ['role' => TeamRole::Admin->value]);
+        $team->members()->attach($agent, ['role' => TeamRole::Agent->value]);
 
         $response = $this
-            ->actingAs($admin)
+            ->actingAs($agent)
             ->post(route('teams.invitations.store', $team), [
                 'email' => 'invited@example.com',
-                'role' => TeamRole::Member->value,
+                'role' => TeamRole::Agent->value,
             ]);
 
-        $response->assertRedirect(route('teams.edit', $team));
+        $response->assertForbidden();
     }
 
     public function test_existing_team_members_cannot_be_invited()
@@ -109,13 +109,13 @@ class TeamInvitationTest extends TestCase
         $team = Team::factory()->create();
 
         $team->members()->attach($owner, ['role' => TeamRole::Owner->value]);
-        $team->members()->attach($member, ['role' => TeamRole::Member->value]);
+        $team->members()->attach($member, ['role' => TeamRole::Agent->value]);
 
         $response = $this
             ->actingAs($owner)
             ->post(route('teams.invitations.store', $team), [
                 'email' => 'member@example.com',
-                'role' => TeamRole::Member->value,
+                'role' => TeamRole::Agent->value,
             ]);
 
         $response->assertSessionHasErrors('email');
@@ -139,7 +139,7 @@ class TeamInvitationTest extends TestCase
             ->actingAs($owner)
             ->post(route('teams.invitations.store', $team), [
                 'email' => 'invited@example.com',
-                'role' => TeamRole::Member->value,
+                'role' => TeamRole::Agent->value,
             ]);
 
         $response->assertSessionHasErrors('email');
@@ -152,13 +152,13 @@ class TeamInvitationTest extends TestCase
         $team = Team::factory()->create();
 
         $team->members()->attach($owner, ['role' => TeamRole::Owner->value]);
-        $team->members()->attach($member, ['role' => TeamRole::Member->value]);
+        $team->members()->attach($member, ['role' => TeamRole::Agent->value]);
 
         $response = $this
             ->actingAs($member)
             ->post(route('teams.invitations.store', $team), [
                 'email' => 'invited@example.com',
-                'role' => TeamRole::Member->value,
+                'role' => TeamRole::Agent->value,
             ]);
 
         $response->assertForbidden();
@@ -198,7 +198,7 @@ class TeamInvitationTest extends TestCase
         $invitation = TeamInvitation::factory()->create([
             'team_id' => $team->id,
             'email' => 'invited@example.com',
-            'role' => TeamRole::Member,
+            'role' => TeamRole::Agent,
             'invited_by' => $owner->id,
         ]);
 

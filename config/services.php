@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'salla' => [
+        // Webhook signing secret from Salla Partners (strategy: signature, HMAC-SHA256).
+        'webhook_secret' => env('SALLA_WEBHOOK_SECRET'),
+    ],
+
 ];

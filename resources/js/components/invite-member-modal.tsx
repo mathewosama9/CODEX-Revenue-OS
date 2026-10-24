@@ -36,13 +36,13 @@ export default function InviteMemberModal({
     open,
     onOpenChange,
 }: Props) {
-    const [inviteRole, setInviteRole] = useState<RoleOption['value']>('member');
+    const [inviteRole, setInviteRole] = useState<RoleOption['value']>('agent');
 
     const handleOpenChange = (nextOpen: boolean) => {
         onOpenChange(nextOpen);
 
         if (!nextOpen) {
-            setInviteRole('member');
+            setInviteRole('agent');
         }
     };
 

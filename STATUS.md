@@ -32,17 +32,25 @@
 3. مصدر الموافقة التسويقية (consent) ممكن يقلّل السلات المؤهلة.
 
 ## 6. البناء
-**Sprint S0 (Setup)** على branch `feat/S0-setup`، وخلص من غير commit:
-- ✅ Laravel 13 + Inertia 3 + React 19 + Teams، وPostgreSQL 17 + pgvector (Docker).
-- ✅ طبقة العزل بين التجار (`app/Shared/Tenancy`) + isolation suite + arch tests لحدود الـModules.
-- ✅ ثيم البراند (Navy/Light)، وخطوط Plex Arabic وRubik، وRTL افتراضي، وكل الواجهة logical properties مع فحص في الـCI.
-- ✅ مكوّنات البراند: زرار Revenue، وKpiCard، وDeltaBadge، وRangeEstimate.
-- ✅ CI على PostgreSQL. `composer ci:check` أخضر (118 test).
-- ⏭️ S1: أدوار Owner/Agent، وSalla Adapter، و`audit_events`، وschema الـconsent.
+**Sprint S0 (Setup)** — ✅ خلص، على branch `feat/S0-setup` (اتعمله push):
+- Laravel 13 + Inertia 3 + React 19 + Teams، وPostgreSQL 17 + pgvector (Docker).
+- طبقة العزل بين التجار (`app/Shared/Tenancy`) + isolation suite + arch tests لحدود الـModules.
+- ثيم البراند (Navy/Light)، وخطوط Plex Arabic وRubik، وRTL افتراضي، وفحص RTL في الـCI.
+- مكوّنات البراند: زرار Revenue، وKpiCard، وDeltaBadge، وRangeEstimate.
+
+**Sprint S1 (Foundation)** — شغال على branch `feat/S1-foundation`:
+- ✅ الأدوار Owner وAgent بس، بمصفوفة الصلاحيات (09 §9.13) (E01).
+- ✅ `audit_events` append-only ومحمي من الداتابيز نفسها (trigger)، ومن غير PII (E15).
+- ✅ Consent ledger append-only + `ConsentGate` + كشف كلمات الإيقاف بالعربي + quiet hours بما فيها رمضان (E04).
+- ✅ استقبال webhooks سلة: توقيع HMAC، وكل event بيتسجل مرة واحدة، والمحتوى متشفّر (E02).
+- `composer ci:check` أخضر (184 test).
+- ⏳ **مستني بيانات سلة** عشان باقي E02: OAuth (Easy Mode)، وrefresh الـtoken بـlock، والـreconciliation polling.
 
 ## 7. قرارات مستنية المؤسس
 - اعتماد الـBlueprint رسميًا: المؤسس قال "ابدأ" يوم 2026-10-25، ولسه محتاج توثيق في Gate issue.
-- Commit وpush لشغل S0.
+- بيانات Salla Partners: الـClient ID والـSecret والـWebhook secret للـdemo store.
+- ملفات اللوجو (SVG) من البراند.
+- مواعيد رمضان 1448 في `config/codex.php` تقديرية، ومحتاجة تأكيد من تقويم أم القرى.
 
 ## 8. الصرف
 P0: 0 من 25–50 ألف ريال.
