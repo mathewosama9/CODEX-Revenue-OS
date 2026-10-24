@@ -61,6 +61,18 @@ jobs:
       - name: Setup Application
         run: composer setup
 
-      # Includes: vp check, tsc, RTL check, Pint, PHPStan, and Pest (Unit, Feature, Isolation, Arch).
+      # Includes: vp check, tsc, RTL check (Laravel + web/), web lint + tsc, Pint, PHPStan, and Pest.
       - name: Run CI Checks
         run: composer ci:check
+
+      # Next.js app against the real Laravel API, Arabic RTL and English LTR (web/e2e).
+      - name: Prepare E2E database
+        run: PGPASSWORD=secret psql -h 127.0.0.1 -p 54320 -U codex -d codex_testing -c "CREATE DATABASE codex_e2e;" && PGPASSWORD=secret psql -h 127.0.0.1 -p 54320 -U codex -d codex_e2e -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+
+      - name: Install Playwright
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E
+        working-directory: web
+        run: npm run e2e

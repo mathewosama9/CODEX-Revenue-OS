@@ -51,6 +51,7 @@
             "@php artisan key:generate",
             "@php artisan migrate --force",
             "npm install",
+            "npm --prefix web install",
             "npm run build"
         ],
         "dev": [
@@ -68,6 +69,7 @@
             "npm run check",
             "npm run types:check",
             "npm run rtl:check",
+            "npm run web:check",
             "@test"
         ],
         "types:check": [

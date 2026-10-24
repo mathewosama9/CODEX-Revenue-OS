@@ -44,6 +44,7 @@ export default defineConfig({
     },
     lint: {
         ignorePatterns: [
+            'web/**',
             'vendor/**',
             'node_modules/**',
             'public/**',
@@ -67,6 +68,7 @@ export default defineConfig({
         singleAttributePerLine: false,
         htmlWhitespaceSensitivity: 'css',
         ignorePatterns: [
+            'web/**',
             '.github/**',
             'docs/**',
             '*.md',
