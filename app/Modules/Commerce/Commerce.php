@@ -8,6 +8,7 @@ use App\Modules\Commerce\Data\OrderSnapshot;
 use App\Modules\Commerce\Models\Cart;
 use App\Modules\Commerce\Models\CartItem;
 use App\Modules\Commerce\Models\Category;
+use App\Modules\Commerce\Models\Customer;
 use App\Modules\Commerce\Models\Order;
 use App\Modules\Commerce\Models\OrderItem;
 use App\Modules\Commerce\Models\Product;
@@ -108,6 +109,16 @@ class Commerce
         }
 
         return $result;
+    }
+
+    /**
+     * "+9665•••••678" — enough for staff to find the chat in their WhatsApp app.
+     */
+    public function maskedPhone(string $phoneHash): ?string
+    {
+        $phone = Customer::query()->where('phone_hash', $phoneHash)->whereNotNull('phone')->value('phone');
+
+        return is_string($phone) ? substr($phone, 0, 5).str_repeat('•', max(0, strlen($phone) - 8)).substr($phone, -3) : null;
     }
 
     public function hasOrderedBefore(string $phoneHash, CarbonImmutable $before): bool

@@ -2,6 +2,7 @@
 
 namespace App\Modules\Measurement;
 
+use App\Modules\Billing\UsageMeter;
 use App\Modules\Measurement\Models\Exposure;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -13,7 +14,10 @@ use Illuminate\Support\Facades\DB;
  */
 class ExposureLog
 {
-    public function __construct(private readonly ExperimentAssigner $assigner) {}
+    public function __construct(
+        private readonly ExperimentAssigner $assigner,
+        private readonly UsageMeter $usage,
+    ) {}
 
     public function record(int $cartId, string $subjectHash, Arm $arm, int $cartTotalHalalas, CarbonImmutable $eligibleAt): void
     {
@@ -26,6 +30,8 @@ class ExposureLog
                 'cart_total_halalas' => $cartTotalHalalas,
                 'eligible_at' => $eligibleAt,
             ]));
+
+            $this->usage->increment(UsageMeter::ELIGIBLE_CARTS, at: $eligibleAt);
         } catch (UniqueConstraintViolationException) {
             // Same cart re-evaluated: the first decision stands (intent-to-treat).
         }

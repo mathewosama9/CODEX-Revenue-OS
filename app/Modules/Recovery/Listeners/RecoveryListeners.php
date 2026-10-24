@@ -2,6 +2,7 @@
 
 namespace App\Modules\Recovery\Listeners;
 
+use App\Modules\Billing\UsageMeter;
 use App\Modules\Commerce\Commerce;
 use App\Modules\Commerce\Events\CartAbandoned;
 use App\Modules\Commerce\Events\CartPurchased;
@@ -34,7 +35,10 @@ class RecoveryListeners
 
     public function subscribe(Dispatcher $events): void
     {
-        $events->listen(CartAbandoned::class, fn (CartAbandoned $event) => StartRecovery::dispatch($event->tenantId, $event->cartId));
+        $events->listen(CartAbandoned::class, function (CartAbandoned $event) {
+            $this->in($event->tenantId, fn () => app(UsageMeter::class)->increment(UsageMeter::CARTS_ABANDONED));
+            StartRecovery::dispatch($event->tenantId, $event->cartId);
+        });
 
         $events->listen(CartPurchased::class, fn (CartPurchased $event) => $this->in($event->tenantId, fn () => $this->lifecycle->cancelWhere(
             fn (Builder $query) => $query->where('cart_id', $event->cartId),
