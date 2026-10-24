@@ -18,6 +18,28 @@ return [
     'assumed_default_margin_bps' => (int) env('CODEX_ASSUMED_MARGIN_BPS', 3000),
 
     /*
+    | Measurement (ADR-013).
+    */
+    'measurement' => [
+        'default_holdout_bps' => 1000,
+        'outcome_window_days' => 7,
+        'attribution_window_hours' => 72,
+        // Smallest effect per assigned customer worth detecting, for the
+        // "we need ~X more carts" message. [افتراض] — set after P0 interviews.
+        'mde_halalas_per_subject' => 500,
+        'method_version' => '1.0',
+    ],
+
+    /*
+    | Meta per-message rates in USD by recipient country and category, from
+    | 2026-10-01 (spine §7.2 [مؤكدة، ثانوي]). Update when Meta changes them.
+    */
+    'meta_rates_usd' => [
+        'SA' => ['marketing' => 0.0576, 'utility' => 0.0107, 'authentication' => 0.0107, 'service' => 0.0107],
+    ],
+    'usd_to_sar' => 3.75,
+
+    /*
     | Promotional quiet hours (CST anti-spam rules, applied to WhatsApp by
     | default — spine §7.5). Times are local to `timezone`; a window whose
     | start is after its end crosses midnight.

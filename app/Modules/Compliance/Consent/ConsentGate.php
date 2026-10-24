@@ -43,6 +43,12 @@ class ConsentGate
         return $latest?->status === ConsentStatus::Granted;
     }
 
+    /** At least one documented grant exists: the merchant's consent source works. */
+    public function hasAnyGrant(): bool
+    {
+        return ConsentRecord::query()->where('status', ConsentStatus::Granted)->exists();
+    }
+
     /**
      * @param  array<string, mixed>  $evidence  What the customer agreed to and where it is proven
      *                                          (text version, checkout reference). No PII.

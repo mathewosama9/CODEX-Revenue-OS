@@ -3,6 +3,7 @@
 use App\Models\TeamInvitation;
 use App\Modules\Commerce\Jobs\ReconcileStore;
 use App\Modules\Commerce\Jobs\RefreshStoreToken;
+use App\Modules\Recovery\ScheduledActionDispatcher;
 use App\Shared\Integrations\TenantRoute;
 use Illuminate\Support\Facades\Schedule;
 
@@ -30,3 +31,10 @@ Schedule::call(function () {
     }
 })->hourly()->name('commerce:refresh-tokens')->withoutOverlapping()
     ->description('Refresh Salla tokens that expire within 72 hours');
+
+/*
+| Recovery (M08): claim due scheduled actions every minute (ADR-010).
+*/
+Schedule::call(fn () => app(ScheduledActionDispatcher::class)->dispatchDue())
+    ->everyMinute()->name('recovery:dispatch')->withoutOverlapping()
+    ->description('Claim and run due recovery steps');

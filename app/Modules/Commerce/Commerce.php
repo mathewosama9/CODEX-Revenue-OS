@@ -10,6 +10,7 @@ use App\Modules\Commerce\Models\CartItem;
 use App\Modules\Commerce\Models\Category;
 use App\Modules\Commerce\Models\Order;
 use App\Modules\Commerce\Models\OrderItem;
+use App\Modules\Commerce\Models\Product;
 use App\Modules\Commerce\Models\StoreConnection;
 use App\Shared\Phone\PhoneNumber;
 use Carbon\CarbonImmutable;
@@ -114,6 +115,10 @@ class Commerce
 
     private function cartSnapshot(Cart $cart): CartSnapshot
     {
+        $categories = Product::query()
+            ->whereIn('external_id', $cart->items->pluck('product_external_id')->filter()->all())
+            ->pluck('category_external_id', 'external_id');
+
         return new CartSnapshot(
             id: $cart->id,
             tenantId: $cart->tenant_id,
@@ -130,6 +135,7 @@ class Commerce
                 $item->name,
                 $item->quantity,
                 $item->unit_price_halalas,
+                $item->product_external_id === null ? null : $categories->get($item->product_external_id),
             ))->all()),
         );
     }
