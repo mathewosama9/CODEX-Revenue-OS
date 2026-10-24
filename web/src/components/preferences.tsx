@@ -3,23 +3,31 @@
 import { Languages, Moon, Sun } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/i18n';
 
-function readTheme(): 'navy' | 'light' {
-    return typeof document !== 'undefined' &&
-        !document.documentElement.classList.contains('dark')
-        ? 'light'
-        : 'navy';
+type Theme = 'navy' | 'light';
+
+const THEME_EVENT = 'codex-theme';
+
+// The <html> class is the source of truth (set before paint in the root layout).
+// The server always renders Navy; the client value arrives after hydration.
+function subscribe(callback: () => void) {
+    window.addEventListener(THEME_EVENT, callback);
+
+    return () => window.removeEventListener(THEME_EVENT, callback);
 }
+
+const readTheme = (): Theme =>
+    document.documentElement.classList.contains('dark') ? 'navy' : 'light';
 
 /** Language and theme switches. Both are browser preferences, not account data. */
 export function Preferences() {
     const { locale, t } = useI18n();
     const pathname = usePathname();
-    const [theme, setTheme] = useState(readTheme);
+    const theme = useSyncExternalStore(subscribe, readTheme, (): Theme => 'navy');
     const other = locale === 'ar' ? 'en' : 'ar';
 
     const toggleTheme = () => {
@@ -33,7 +41,7 @@ export function Preferences() {
             // Private mode: the switch still works for this page.
         }
 
-        setTheme(next);
+        window.dispatchEvent(new Event(THEME_EVENT));
     };
 
     return (
@@ -55,7 +63,6 @@ export function Preferences() {
                 size="icon"
                 onClick={toggleTheme}
                 aria-label={theme === 'navy' ? t.common.themeLight : t.common.themeNavy}
-                suppressHydrationWarning
             >
                 {theme === 'navy' ? <Sun /> : <Moon />}
             </Button>
