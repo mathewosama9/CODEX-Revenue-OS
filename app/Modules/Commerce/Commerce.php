@@ -7,6 +7,7 @@ use App\Modules\Commerce\Data\LineItemData;
 use App\Modules\Commerce\Data\OrderSnapshot;
 use App\Modules\Commerce\Models\Cart;
 use App\Modules\Commerce\Models\CartItem;
+use App\Modules\Commerce\Models\Category;
 use App\Modules\Commerce\Models\Order;
 use App\Modules\Commerce\Models\OrderItem;
 use App\Modules\Commerce\Models\StoreConnection;
@@ -89,6 +90,16 @@ class Commerce
             ->where('placed_at', '<', $before)
             ->whereNull('cancelled_at')
             ->exists();
+    }
+
+    /**
+     * @return list<array{external_id: string, name: string}>
+     */
+    public function categories(): array
+    {
+        return array_values(Category::query()->orderBy('name')->get()
+            ->map(fn (Category $category) => ['external_id' => $category->external_id, 'name' => $category->name])
+            ->all());
     }
 
     public function isStoreActive(): bool
