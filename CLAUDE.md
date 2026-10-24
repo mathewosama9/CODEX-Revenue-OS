@@ -13,6 +13,7 @@
 المؤسس بدأ التنفيذ يوم 2026-10-25 (خطة البناء في `docs/blueprint/16-build-plan-and-brand.md`):
 - **P0a** شغالة: المقابلات والمنصات في `docs/phases/P0/`، والحالة في `STATUS.md`.
 - **Sprint S0** (الأساس) على branch `feat/S0-setup`: Laravel 13 + Inertia 3 + React 19، PostgreSQL، طبقة العزل بين التجار، وثيم البراند.
+- **P1 Backend** خلص على `feat/S1-foundation`، و**P2 الواجهة (Next.js)** خلصت على `feat/P2-web` في `web/` (الحالة في `STATUS.md`، والاختبار في `docs/phases/P2-frontend/testing-guide.md`).
 - **Gate 0** لسه قايمة: مفيش تاجر حقيقي يتربط قبل ما ≥5 يدفعوا Proof Pilot.
 
 ## Critical Rules (بالنص من البرومبت الأصلي)
@@ -51,7 +52,7 @@
 
 ## الـStack (حسب الـspine §8، والـADRs بتتكتب في `docs/adr/`)
 - Backend: **Laravel 13 Modular Monolith** كـ**API** (`/api/v1`، Sanctum SPA auth).
-- Frontend: **Next.js + TS + Tailwind** في تطبيق منفصل، **قرار المؤسس 2026-10-25** ([ADR-002](docs/adr/ADR-002-frontend-nextjs.md)). الواجهة بتتبني بعد ما P1 backend يخلص. الـscaffold بتاع Inertia/React مؤقت، **ممنوع تبني عليه شاشات جديدة**.
+- Frontend: **Next.js + TS + Tailwind** في تطبيق منفصل، **قرار المؤسس 2026-10-25** ([ADR-002](docs/adr/ADR-002-frontend-nextjs.md)). التطبيق في `web/` (Next.js 16 App Router + Cache Components، Tailwind 4، shadcn/ui، TanStack Query). اقرا `web/AGENTS.md` قبل ما تكتب كود Next.js: الإصدار فيه تغييرات عن اللي تعرفه، والـdocs في `web/node_modules/next/dist/docs/`. الـscaffold بتاع Inertia/React مؤقت لحد ما الإعدادات تتنقل لـNext.js، **ممنوع تبني عليه شاشات جديدة**.
 - Database: **PostgreSQL + pgvector**. Queues: Redis + Horizon (من S1)، و`scheduled_actions` مصدر الحقيقة لأي تأخير.
 - AI: من P2 بس، عن طريق Laravel AI SDK ورا `AiGateway`. مفيش Python ولا LangGraph في الـMVP.
 - Admin: Filament داخلي. Hosting: GCP Dammam (Frankfurt مؤقت).
@@ -60,11 +61,14 @@
 - **Tenant = Team.** أي model فيه بيانات تاجر لازم يستخدم `App\Shared\Tenancy\BelongsToTenant` ويبقى فيه `tenant_id`. أي job بيلمس بيانات تاجر يستخدم `TenantAware` ومعاه `public int $tenantId`. الـtenant بييجي من السيرفر بس، ولو مش موجود الـquery بتفشل.
 - الـModules في `app/Modules/*` وقواعدها في `app/Modules/README.md`، ومفروضة بـ`tests/Arch`.
 - الفلوس بالهللة (integer)، والوقت UTC، والـquiet hours بتوقيت `Asia/Riyadh`.
-- البراند: ألوان الثيم في `resources/css/app.css`، ومكوّنات البراند في `resources/js/components/brand/`. **الأصفر للفلوس بس** (`bg-revenue` / `text-revenue-ink`)، ورقم أصفر واحد في الشاشة. Navy هو الثيم الافتراضي. أرقام لاتيني، والعملة «ر.س».
+- البراند: ألوان الثيم في `web/src/app/globals.css`، ومكوّنات البراند في `web/src/components/brand/` (نسخة Inertia القديمة في `resources/` لحد ما تتمسح). **الأصفر للفلوس بس** (`bg-revenue` / `text-revenue-ink`)، ورقم أصفر واحد في الشاشة. Navy هو الثيم الافتراضي. أرقام لاتيني، والعملة «ر.س».
 
 ## التشغيل محليًا
 - `docker compose up -d pgsql` (PostgreSQL + pgvector على منفذ **54320**، لأن 5432 مستخدم على جهاز المؤسس).
-- `composer dev` للتشغيل، و`composer ci:check` لكل الفحوصات: vp check وtsc وRTL check وPint وPHPStan وPest.
+- `composer dev` للـAPI (localhost:8000)، و`cd web && npm run dev` للتطبيق (localhost:3000). افتحهم على `localhost` مش `127.0.0.1` عشان الـsession cookie.
+- `php artisan db:seed --class=DemoStoreSeeder` بيعمل متجر تجريبي (`owner@demo.test` / `agent@demo.test`، الباسورد `password`). محلي بس.
+- `composer ci:check` لكل الفحوصات: vp check وtsc وRTL check (بيشمل `web/`) وlint وtsc بتوع `web/` وPint وPHPStan وPest.
+- `cd web && npm run e2e`: Playwright على الـAPI الحقيقي، بداتابيز `codex_e2e` وبورتات 8010/3010.
 - الـtests بتشتغل على PostgreSQL (`codex_testing`) مش SQLite، عشان isolation suite تبقى حقيقية.
 
 ## إمتى تستخدم أنهي Plugin
@@ -83,6 +87,10 @@
 لتفعيل plugin معمول له disable: `claude plugin enable <plugin>@<marketplace>`، وبعدها restart.
 
 ## قواعد الـFrontend
+- النصوص في `web/src/i18n/ar.ts` و`en.ts` (الواجهة بالفصحى المبسّطة). الروابط `/ar/…` و`/en/…`.
+- البيانات بتتجاب من المتصفح عن طريق `web/src/lib/api.ts` (Sanctum SPA + XSRF). ممنوع تخزين بيانات تجار أو عملاء في Next.js، أو tokens في localStorage.
+- كل صفحة في `t/[team]/` عبارة عن `page.tsx` (server، فيه `instant = false`) + `screen.tsx` (client).
+- اخفي أي حاجة المستخدم معندوش صلاحيتها (`useTeam().can(...)`)، والـAPI بيرفض على أي حال.
 - دعم كامل لـ**RTL** (العربي) و**LTR** (الإنجليزي)، مع `dir` ديناميكي حسب الـlocale.
 - استخدم Tailwind **logical properties** بس: `ms-` و`me-` و`ps-` و`pe-` و`start-` و`end-` و`text-start` و`text-end`. ممنوع `ml-` و`mr-` و`pl-` و`pr-` و`left-` و`right-` و`text-left` و`text-right` للاتجاهات.
 - الأيقونات اللي ليها اتجاه (أسهم وchevrons) لازم تنعكس في RTL.
