@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -27,13 +27,25 @@ export function ConfirmButton({
 }) {
     const { t } = useI18n();
     const [open, setOpen] = useState(false);
+    const confirmed = useRef(false);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button {...props}>{children}</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent
+                // Act once the dialog has fully closed: the action often swaps
+                // this button out, and unmounting a closing dialog's trigger
+                // can leave the page unclickable.
+                onCloseAutoFocus={(event) => {
+                    if (confirmed.current) {
+                        confirmed.current = false;
+                        event.preventDefault();
+                        onConfirm();
+                    }
+                }}
+            >
                 <DialogTitle>{children}</DialogTitle>
                 <DialogDescription>{message}</DialogDescription>
                 <DialogFooter className="gap-2">
@@ -44,8 +56,8 @@ export function ConfirmButton({
                         variant={props.variant}
                         data-testid="confirm"
                         onClick={() => {
+                            confirmed.current = true;
                             setOpen(false);
-                            onConfirm();
                         }}
                     >
                         {children}
