@@ -2,8 +2,8 @@
 
 namespace App\Shared\Webhooks;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Carbon;
 
 /**
  * Platform-level inbox for inbound webhooks. Not tenant-scoped: the tenant is
@@ -18,8 +18,8 @@ use Illuminate\Support\Carbon;
  * @property WebhookStatus $status
  * @property string|null $error
  * @property int $attempts
- * @property Carbon $received_at
- * @property Carbon|null $processed_at
+ * @property CarbonImmutable $received_at
+ * @property CarbonImmutable|null $processed_at
  */
 class WebhookEvent extends Model
 {
