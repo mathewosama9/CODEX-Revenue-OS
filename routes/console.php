@@ -3,6 +3,7 @@
 use App\Models\TeamInvitation;
 use App\Modules\Commerce\Jobs\ReconcileStore;
 use App\Modules\Commerce\Jobs\RefreshStoreToken;
+use App\Modules\Measurement\Jobs\WeeklyMeasurement;
 use App\Modules\Recovery\ScheduledActionDispatcher;
 use App\Shared\Integrations\TenantRoute;
 use Illuminate\Support\Facades\Schedule;
@@ -38,3 +39,14 @@ Schedule::call(function () {
 Schedule::call(fn () => app(ScheduledActionDispatcher::class)->dispatchDue())
     ->everyMinute()->name('recovery:dispatch')->withoutOverlapping()
     ->description('Claim and run due recovery steps');
+
+/*
+| Measurement (M09): weekly SRM check + frozen report snapshot per tenant
+| (Sunday 06:00 Riyadh, before the weekly merchant call).
+*/
+Schedule::call(function () {
+    foreach (TenantRoute::tenantsFor(TenantRoute::SALLA) as $tenantId) {
+        WeeklyMeasurement::dispatch($tenantId);
+    }
+})->weeklyOn(0, '03:00')->name('measurement:weekly')->withoutOverlapping()
+    ->description('SRM check and weekly profit report snapshot');

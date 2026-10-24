@@ -11,6 +11,9 @@ use Carbon\CarbonImmutable;
  */
 class MarginLookup
 {
+    /** @var list<CategoryMargin>|null newest first, loaded once per instance */
+    private ?array $rows = null;
+
     public function __construct(private readonly int $assumedDefaultBps) {}
 
     public function marginBps(?string $categoryExternalId, ?CarbonImmutable $at = null): int
@@ -54,6 +57,8 @@ class MarginLookup
         foreach ($categoryBps as $category => $bps) {
             CategoryMargin::create(['category_external_id' => (string) $category, 'margin_bps' => $bps, 'effective_from' => $now, 'created_by' => $userId]);
         }
+
+        $this->rows = null;
     }
 
     /**
@@ -72,14 +77,14 @@ class MarginLookup
 
     private function effective(?string $categoryExternalId, CarbonImmutable $at): ?int
     {
-        $query = CategoryMargin::query()->where('effective_from', '<=', $at);
+        $this->rows ??= array_values(CategoryMargin::query()->orderByDesc('effective_from')->orderByDesc('id')->get()->all());
 
-        $categoryExternalId === null
-            ? $query->whereNull('category_external_id')
-            : $query->where('category_external_id', $categoryExternalId);
+        foreach ($this->rows as $row) {
+            if ($row->category_external_id === $categoryExternalId && $row->effective_from->lessThanOrEqualTo($at)) {
+                return $row->margin_bps;
+            }
+        }
 
-        $value = $query->orderByDesc('effective_from')->orderByDesc('id')->value('margin_bps');
-
-        return $value === null ? null : (int) $value;
+        return null;
     }
 }
