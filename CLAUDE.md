@@ -65,7 +65,7 @@
 
 ## التشغيل محليًا
 - `docker compose up -d pgsql` (PostgreSQL + pgvector على منفذ **54320**، لأن 5432 مستخدم على جهاز المؤسس).
-- `composer dev` للـAPI (localhost:8000)، و`cd web && npm run dev` للتطبيق (localhost:3000). افتحهم على `localhost` مش `127.0.0.1` عشان الـsession cookie.
+- `composer dev` للـAPI (localhost:8000)، و`cd web && npm run dev` للتطبيق (localhost:3001). افتحهم على `localhost` مش `127.0.0.1` عشان الـsession cookie.
 - `php artisan db:seed --class=DemoStoreSeeder` بيعمل متجر تجريبي (`owner@demo.test` / `agent@demo.test`، الباسورد `password`). محلي بس.
 - `composer ci:check` لكل الفحوصات: vp check وtsc وRTL check (بيشمل `web/`) وlint وtsc بتوع `web/` وPint وPHPStan وPest.
 - `cd web && npm run e2e`: Playwright على الـAPI الحقيقي، بداتابيز `codex_e2e` وبورتات 8010/3010.
