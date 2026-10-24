@@ -3,6 +3,7 @@
 use App\Enums\TeamPermission;
 use App\Http\Middleware\EnsureTeamPermission;
 use App\Modules\Measurement\Http\MarginsController;
+use App\Modules\Measurement\Http\ProfitReportController;
 use App\Modules\Messaging\Http\WhatsAppController;
 use App\Modules\Recovery\Http\RecoveryController;
 use Illuminate\Support\Facades\Route;
@@ -36,4 +37,9 @@ Route::prefix('recovery')->group(function () {
         Route::get('approvals', [RecoveryController::class, 'approvals'])->name('recovery.approvals');
         Route::post('approvals/{approval}', [RecoveryController::class, 'decide'])->whereNumber('approval')->name('recovery.approvals.decide');
     });
+});
+
+Route::prefix('reports/profit')->middleware(EnsureTeamPermission::using(TeamPermission::ViewProfitReport))->group(function () {
+    Route::get('/', [ProfitReportController::class, 'show'])->name('reports.profit');
+    Route::get('snapshots', [ProfitReportController::class, 'snapshots'])->name('reports.profit.snapshots');
 });

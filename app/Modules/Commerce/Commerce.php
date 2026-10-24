@@ -84,6 +84,32 @@ class Commerce
             ->all());
     }
 
+    /**
+     * Orders of many customers in one pass (the profit report reads thousands).
+     *
+     * @param  list<string>  $phoneHashes
+     * @return array<string, list<OrderSnapshot>>
+     */
+    public function ordersForSubjects(array $phoneHashes, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $result = [];
+
+        foreach (array_chunk($phoneHashes, 1000) as $chunk) {
+            $orders = Order::query()
+                ->with('items')
+                ->whereIn('phone_hash', $chunk)
+                ->whereBetween('placed_at', [$from, $to])
+                ->orderBy('placed_at')
+                ->get();
+
+            foreach ($orders as $order) {
+                $result[(string) $order->phone_hash][] = $this->orderSnapshot($order);
+            }
+        }
+
+        return $result;
+    }
+
     public function hasOrderedBefore(string $phoneHash, CarbonImmutable $before): bool
     {
         return Order::query()

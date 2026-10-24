@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Modules\Commerce\Commerce;
 use App\Modules\Commerce\CommerceAdapter;
 use App\Modules\Commerce\Salla\SallaAdapter;
 use App\Modules\Commerce\Salla\SallaClient;
@@ -10,6 +11,7 @@ use App\Modules\Compliance\QuietHours;
 use App\Modules\Measurement\CostLedger;
 use App\Modules\Measurement\ExperimentAssigner;
 use App\Modules\Measurement\MarginLookup;
+use App\Modules\Measurement\ProfitReport;
 use App\Modules\Messaging\Events\MessageDelivered;
 use App\Modules\Messaging\Listeners\BookDeliveryCost;
 use App\Modules\Messaging\Meta\MetaGraphClient;
@@ -68,6 +70,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(CostLedger::class, fn () => new CostLedger(
             (array) config('codex.meta_rates_usd'),
             (float) config('codex.usd_to_sar'),
+        ));
+
+        $this->app->bind(ProfitReport::class, fn ($app) => new ProfitReport(
+            $app->make(ExperimentAssigner::class),
+            $app->make(Commerce::class),
+            $app->make(MarginLookup::class),
+            (int) config('codex.measurement.outcome_window_days'),
+            (int) config('codex.measurement.attribution_window_hours'),
+            (int) config('codex.measurement.mde_halalas_per_subject'),
+            (string) config('codex.measurement.method_version'),
         ));
 
         $this->app->singleton(QuietHours::class, fn () => new QuietHours(
