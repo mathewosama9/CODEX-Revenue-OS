@@ -15,6 +15,8 @@ type RangeEstimateProps = {
     /** Shown when the sample is small, e.g. "محتاجين ~2,400 سلة كمان". */
     explanation?: string;
     locale?: Locale;
+    /** Only the one money figure of a screen is gold; others stay ink when helpful. */
+    isMoney?: boolean;
 };
 
 const VERDICT_LABEL: Record<Locale, Record<EstimateVerdict, string>> = {
@@ -36,6 +38,7 @@ export function RangeEstimate({
     verdict,
     explanation,
     locale = 'ar',
+    isMoney = true,
 }: RangeEstimateProps) {
     const isHelpful = verdict === 'helpful';
 
@@ -49,7 +52,7 @@ export function RangeEstimate({
                 dir="ltr"
                 className={cn(
                     'font-numeric text-[32px] leading-tight font-semibold tabular-nums',
-                    isHelpful && 'text-revenue-ink',
+                    isHelpful && (isMoney ? 'text-revenue-ink' : 'text-foreground'),
                     verdict === 'harmful' && 'text-loss',
                     verdict === 'inconclusive' && 'text-muted-foreground',
                 )}

@@ -203,6 +203,11 @@ export const en: Dictionary = {
         frozenBody: "We detected an imbalance between the two groups (SRM), so we froze the report rather than show a misleading number. Our team is reviewing it.",
         sample: 'Sample: {t} messaged customers and {c} in the comparison group. {m} still inside their window.',
         conversion: 'Purchase rate: {t} vs {c}',
+        costKind: {
+            meta_message: 'WhatsApp messages',
+            discount: 'Discounts',
+            llm: 'AI',
+        },
         snapshots: 'Past weekly reports',
         snapshotsEmpty: 'No weekly reports yet.',
         method: 'Method version',
