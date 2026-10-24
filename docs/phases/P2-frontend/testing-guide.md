@@ -5,7 +5,7 @@
 
 ## 1. Run it locally
 
-You need two servers: Laravel (the API) and Next.js (the app). Open both on `localhost`, not `127.0.0.1`, or the session cookie won't be shared.
+You need two servers: Laravel (the API) and Next.js (the app). Open both on `localhost`, not `127.0.0.1`, or the session cookie won't be shared. The app uses port **3001** because 3000 is taken by another project on the founder's machine.
 
 ```bash
 docker compose up -d pgsql
@@ -16,10 +16,10 @@ composer dev                                  # Laravel on http://localhost:8000
 cd web
 cp .env.example .env.local                    # first time only
 npm install                                   # first time only
-npm run dev                                   # the app on http://localhost:3000
+npm run dev                                   # the app on http://localhost:3001
 ```
 
-Open http://localhost:3000. Arabic (RTL) is the default; the language switch is at the top of every page.
+Open http://localhost:3001. Arabic (RTL) is the default; the language switch is at the top of every page.
 
 > `DemoStoreSeeder` creates fake rows (a store, a WhatsApp number, a discount request, a conversation). It is for local demos only. **Never run it in production.**
 
