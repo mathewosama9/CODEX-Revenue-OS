@@ -10,7 +10,10 @@
 المرجع الكامل هو `docs/00-master-prompt.md`. شغل الـBlueprint في `docs/blueprint/`، والبحث الخام في `docs/research/`، والقرارات المعمارية في `docs/adr/`.
 
 ## المرحلة الحالية
-تخطيط فقط (Master Blueprint v1.0). مفيش كود للمنتج. كل قسم بيتكتب ويستنى موافقة المؤسس قبل اللي بعده.
+المؤسس بدأ التنفيذ يوم 2026-10-25 (خطة البناء في `docs/blueprint/16-build-plan-and-brand.md`):
+- **P0a** شغالة: المقابلات والمنصات في `docs/phases/P0/`، والحالة في `STATUS.md`.
+- **Sprint S0** (الأساس) على branch `feat/S0-setup`: Laravel 13 + Inertia 3 + React 19، PostgreSQL، طبقة العزل بين التجار، وثيم البراند.
+- **Gate 0** لسه قايمة: مفيش تاجر حقيقي يتربط قبل ما ≥5 يدفعوا Proof Pilot.
 
 ## Critical Rules (بالنص من البرومبت الأصلي)
 
@@ -46,13 +49,22 @@
 
 لو ميزة ملقيتهاش عند منافس، تتكتب **"غير مؤكدة"**، مش "غير موجودة".
 
-## الـStack المقترح (⚠️ لسه مش معتمد، ومحتاج يتراجع ويتقرر في ADR)
-- Frontend: Next.js + TypeScript + Tailwind CSS
-- Backend: Laravel، كـ**Modular Monolith** (المفضّل)
-- Database: PostgreSQL
-- Cache/Queues: Redis
-- AI: LLM APIs + RAG + Tool Calling، ومعاهم Python/FastAPI أو LangGraph بس لو في مبرر واضح
-- Infra: Docker، Cloud Hosting، Object Storage، Monitoring
+## الـStack (حسب الـspine §8، والـADRs بتتكتب في `docs/adr/`)
+- App: **Laravel 13 Modular Monolith** + **Inertia 3 + React 19 + TS + Tailwind 4 + shadcn/ui** (React starter kit بـTeams). **Next.js مرفوض للتطبيق** (ممكن لموقع التسويق بعدين).
+- Database: **PostgreSQL + pgvector**. Queues: Redis + Horizon (من S1)، و`scheduled_actions` مصدر الحقيقة لأي تأخير.
+- AI: من P2 بس، عن طريق Laravel AI SDK ورا `AiGateway`. مفيش Python ولا LangGraph في الـMVP.
+- Admin: Filament داخلي. Hosting: GCP Dammam (Frankfurt مؤقت).
+
+## الكود: قواعد لازم تتّبع
+- **Tenant = Team.** أي model فيه بيانات تاجر لازم يستخدم `App\Shared\Tenancy\BelongsToTenant` ويبقى فيه `tenant_id`. أي job بيلمس بيانات تاجر يستخدم `TenantAware` ومعاه `public int $tenantId`. الـtenant بييجي من السيرفر بس، ولو مش موجود الـquery بتفشل.
+- الـModules في `app/Modules/*` وقواعدها في `app/Modules/README.md`، ومفروضة بـ`tests/Arch`.
+- الفلوس بالهللة (integer)، والوقت UTC، والـquiet hours بتوقيت `Asia/Riyadh`.
+- البراند: ألوان الثيم في `resources/css/app.css`، ومكوّنات البراند في `resources/js/components/brand/`. **الأصفر للفلوس بس** (`bg-revenue` / `text-revenue-ink`)، ورقم أصفر واحد في الشاشة. Navy هو الثيم الافتراضي. أرقام لاتيني، والعملة «ر.س».
+
+## التشغيل محليًا
+- `docker compose up -d pgsql` (PostgreSQL + pgvector على منفذ **54320**، لأن 5432 مستخدم على جهاز المؤسس).
+- `composer dev` للتشغيل، و`composer ci:check` لكل الفحوصات: vp check وtsc وRTL check وPint وPHPStan وPest.
+- الـtests بتشتغل على PostgreSQL (`codex_testing`) مش SQLite، عشان isolation suite تبقى حقيقية.
 
 ## إمتى تستخدم أنهي Plugin
 | الشغل | Plugin / Skill |
