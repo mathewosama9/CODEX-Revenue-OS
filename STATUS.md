@@ -48,12 +48,18 @@
 | E13a Usage metering | ✅ |
 | E14 Admin داخلي (Filament + 2FA + صحة المتاجر + kill switch) | ✅ |
 | E15 Security (audit append-only، تشفير، redaction، retention، طلبات البيانات) | ✅ |
-| **الواجهة (Next.js)** | ⏳ بعد مراجعة P1 ([ADR-002](docs/adr/ADR-002-frontend-nextjs.md)) |
+| **الواجهة (Next.js)** | ✅ (شوف تحت) |
 
 دليل الاختبار: [docs/phases/P1/testing-guide.md](docs/phases/P1/testing-guide.md).
 
+**P2 الواجهة (Next.js) — ✅ خلصت** على branch `feat/P2-web` (2026-10-25)، في فولدر `web/` ([ADR-002](docs/adr/ADR-002-frontend-nextjs.md)). الـ8 شاشات: الدخول (+2FA ونسيت كلمة المرور)، الإعداد، إعدادات الاسترجاع، موافقات الخصم، تقرير الربح، المحادثات، الاستهلاك، طلبات البيانات. عربي RTL وإنجليزي LTR، وNavy وLight. `composer ci:check` أخضر، و**10 اختبارات E2E** (Playwright على الـAPI الحقيقي). دليل الاختبار: [docs/phases/P2-frontend/testing-guide.md](docs/phases/P2-frontend/testing-guide.md).
+
+الناقص: شاشات الإعدادات (البروفايل، كلمة المرور، تفعيل 2FA، دعوة موظف) ومسح Inertia، ودول مستنيين موافقتك على تعديلات backend صغيرة (§7).
+
 ## 7. قرارات مستنية المؤسس
-- مراجعة P1 ودمج الـbranches في `main`.
+- مراجعة P1 وP2 ودمج الـbranches في `main`.
+- 4 تعديلات backend صغيرة للواجهة (التفاصيل في [دليل P2](docs/phases/P2-frontend/testing-guide.md) §7): لينك reset password يروح لـNext.js، وAPI للإعدادات (وبعدها نمسح Inertia)، وقائمة أعضاء الفريق للـinbox، ورسائل الأخطاء بالعربي.
+- بيانات Meta للواجهة: `NEXT_PUBLIC_META_APP_ID` و`NEXT_PUBLIC_META_CONFIG_ID` (Facebook Login for Business) عشان زرار ربط واتساب يشتغل.
 - بيانات Salla Partners وMeta (في `.env`) عشان الـspikes الحية.
 - ADR-006: منطقة تخزين واتساب (AE ولا BH)، **ومينفعش تتغير بعدين**.
 - ADR-005: الاستضافة.
