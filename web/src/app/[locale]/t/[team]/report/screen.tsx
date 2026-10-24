@@ -150,7 +150,7 @@ function ReportBody({ report, canEditMargins }: { report: ProfitReport; canEditM
                                 .map(([kind, amount]) => (
                                     <li key={kind} className="flex justify-between gap-4">
                                         <span>{t.report.costKind[kind] ?? kind}</span>
-                                        <span dir="ltr" className="font-numeric tabular-nums">
+                                        <span className="font-numeric tabular-nums">
                                             {formatSar(amount, locale)}
                                         </span>
                                     </li>
