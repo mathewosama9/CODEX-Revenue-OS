@@ -11,6 +11,12 @@ return [
     'subject_hash_key' => env('CODEX_SUBJECT_HASH_KEY'),
 
     /*
+    | Margin used when the merchant has entered none (E08). Reports flag any
+    | figure that relies on it. [افتراض] — replace with a vertical benchmark.
+    */
+    'assumed_default_margin_bps' => (int) env('CODEX_ASSUMED_MARGIN_BPS', 3000),
+
+    /*
     | Promotional quiet hours (CST anti-spam rules, applied to WhatsApp by
     | default — spine §7.5). Times are local to `timezone`; a window whose
     | start is after its end crosses midnight.

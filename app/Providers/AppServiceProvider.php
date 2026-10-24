@@ -6,6 +6,7 @@ use App\Modules\Commerce\CommerceAdapter;
 use App\Modules\Commerce\Salla\SallaAdapter;
 use App\Modules\Commerce\Salla\SallaClient;
 use App\Modules\Compliance\QuietHours;
+use App\Modules\Measurement\MarginLookup;
 use App\Shared\Phone\SubjectHasher;
 use App\Shared\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
@@ -40,6 +41,10 @@ class AppServiceProvider extends ServiceProvider
 
         // Salla is the only commerce platform until Zid (P4, ADR-011).
         $this->app->bind(CommerceAdapter::class, SallaAdapter::class);
+
+        $this->app->bind(MarginLookup::class, fn () => new MarginLookup(
+            (int) config('codex.assumed_default_margin_bps'),
+        ));
 
         $this->app->singleton(QuietHours::class, fn () => new QuietHours(
             config('codex.quiet_hours.timezone'),
