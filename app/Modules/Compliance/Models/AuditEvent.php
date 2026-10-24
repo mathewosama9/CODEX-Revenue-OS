@@ -4,8 +4,8 @@ namespace App\Modules\Compliance\Models;
 
 use App\Modules\Compliance\ActorType;
 use App\Shared\Tenancy\BelongsToTenant;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Carbon;
 use LogicException;
 
 /**
@@ -18,7 +18,7 @@ use LogicException;
  * @property string|null $subject_id
  * @property array<string, mixed> $context
  * @property string|null $correlation_id
- * @property Carbon $occurred_at
+ * @property CarbonImmutable $occurred_at
  */
 class AuditEvent extends Model
 {

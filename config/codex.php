@@ -1,5 +1,7 @@
 <?php
 
+use App\Modules\Commerce\Salla\SallaWebhookHandler;
+
 return [
 
     /*
@@ -30,7 +32,7 @@ return [
     | Until a handler exists, events are stored and marked "unhandled".
     */
     'webhook_handlers' => [
-        // 'salla' => App\Modules\Commerce\Salla\SallaWebhookHandler::class,
+        'salla' => SallaWebhookHandler::class,
     ],
 
 ];

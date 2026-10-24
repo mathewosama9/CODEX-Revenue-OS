@@ -35,7 +35,8 @@ it('accepts a correctly signed webhook and stores it once', function () {
 
     expect($event->provider)->toBe('salla')
         ->and($event->event_type)->toBe('abandoned.cart')
-        ->and($event->status)->toBe(WebhookStatus::Unhandled)
+        // Processed by the Salla handler (an unknown store is ignored, not failed).
+        ->and($event->status)->toBe(WebhookStatus::Processed)
         ->and($event->payload['data']['id'])->toBe(555);
 });
 

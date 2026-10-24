@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Modules\Commerce\CommerceAdapter;
+use App\Modules\Commerce\Salla\SallaAdapter;
+use App\Modules\Commerce\Salla\SallaClient;
 use App\Modules\Compliance\QuietHours;
 use App\Shared\Phone\SubjectHasher;
 use App\Shared\Tenancy\TenantContext;
@@ -27,6 +30,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SubjectHasher::class, fn () => new SubjectHasher(
             (string) config('codex.subject_hash_key'),
         ));
+
+        $this->app->singleton(SallaClient::class, fn () => new SallaClient(
+            (string) config('services.salla.api_base'),
+            (string) config('services.salla.accounts_base'),
+            (string) config('services.salla.client_id'),
+            (string) config('services.salla.client_secret'),
+        ));
+
+        // Salla is the only commerce platform until Zid (P4, ADR-011).
+        $this->app->bind(CommerceAdapter::class, SallaAdapter::class);
 
         $this->app->singleton(QuietHours::class, fn () => new QuietHours(
             config('codex.quiet_hours.timezone'),

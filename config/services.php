@@ -36,8 +36,12 @@ return [
     ],
 
     'salla' => [
+        'client_id' => env('SALLA_CLIENT_ID'),
+        'client_secret' => env('SALLA_CLIENT_SECRET'),
         // Webhook signing secret from Salla Partners (strategy: signature, HMAC-SHA256).
         'webhook_secret' => env('SALLA_WEBHOOK_SECRET'),
+        'api_base' => env('SALLA_API_BASE', 'https://api.salla.dev/admin/v2/'),
+        'accounts_base' => env('SALLA_ACCOUNTS_BASE', 'https://accounts.salla.sa/'),
     ],
 
 ];

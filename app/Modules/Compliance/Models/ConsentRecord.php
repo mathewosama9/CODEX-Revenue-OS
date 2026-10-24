@@ -7,8 +7,8 @@ use App\Modules\Compliance\Consent\ConsentPurpose;
 use App\Modules\Compliance\Consent\ConsentSource;
 use App\Modules\Compliance\Consent\ConsentStatus;
 use App\Shared\Tenancy\BelongsToTenant;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Carbon;
 use LogicException;
 
 /**
@@ -20,7 +20,7 @@ use LogicException;
  * @property ConsentStatus $status
  * @property ConsentSource $source
  * @property array<string, mixed> $evidence
- * @property Carbon $recorded_at
+ * @property CarbonImmutable $recorded_at
  */
 class ConsentRecord extends Model
 {
