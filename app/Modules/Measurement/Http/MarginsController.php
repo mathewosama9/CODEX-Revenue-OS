@@ -42,9 +42,11 @@ class MarginsController
             'categories.*.margin_bps' => ['required', 'integer', 'min:0', 'max:10000'],
         ]);
 
-        $byCategory = collect($validated['categories'] ?? [])
-            ->mapWithKeys(fn (array $row) => [$row['external_id'] => (int) $row['margin_bps']])
-            ->all();
+        $byCategory = [];
+
+        foreach ($validated['categories'] ?? [] as $row) {
+            $byCategory[(string) $row['external_id']] = (int) $row['margin_bps'];
+        }
 
         $this->margins->update($validated['default_margin_bps'] ?? null, $byCategory, $request->user()?->id);
 

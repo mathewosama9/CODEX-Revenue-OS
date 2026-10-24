@@ -7,6 +7,7 @@ use App\Modules\Commerce\Salla\SallaAdapter;
 use App\Modules\Commerce\Salla\SallaClient;
 use App\Modules\Compliance\QuietHours;
 use App\Modules\Measurement\MarginLookup;
+use App\Modules\Messaging\Meta\MetaGraphClient;
 use App\Shared\Phone\SubjectHasher;
 use App\Shared\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
@@ -37,6 +38,12 @@ class AppServiceProvider extends ServiceProvider
             (string) config('services.salla.accounts_base'),
             (string) config('services.salla.client_id'),
             (string) config('services.salla.client_secret'),
+        ));
+
+        $this->app->singleton(MetaGraphClient::class, fn () => new MetaGraphClient(
+            (string) config('services.meta.graph_base'),
+            (string) config('services.meta.app_id'),
+            (string) config('services.meta.app_secret'),
         ));
 
         // Salla is the only commerce platform until Zid (P4, ADR-011).
