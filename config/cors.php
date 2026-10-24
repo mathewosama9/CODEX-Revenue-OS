@@ -20,7 +20,7 @@ return [
     'allowed_methods' => ['*'],
 
     // Only the Next.js app (ADR-002).
-    'allowed_origins' => [env('FRONTEND_URL', 'http://localhost:3000')],
+    'allowed_origins' => [env('FRONTEND_URL', 'http://localhost:3001')],
 
     'allowed_origins_patterns' => [],
 
