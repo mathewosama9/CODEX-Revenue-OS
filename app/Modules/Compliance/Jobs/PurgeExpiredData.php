@@ -4,6 +4,7 @@ namespace App\Modules\Compliance\Jobs;
 
 use App\Modules\Inbox\Inbox;
 use App\Modules\Messaging\Messaging;
+use App\Modules\SalesAgent\Drafts;
 use App\Shared\Tenancy\TenantAware;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
@@ -20,11 +21,12 @@ class PurgeExpiredData implements ShouldQueue
 
     public function __construct(public int $tenantId) {}
 
-    public function handle(Messaging $messaging, Inbox $inbox): void
+    public function handle(Messaging $messaging, Inbox $inbox, Drafts $drafts): void
     {
         $now = CarbonImmutable::now();
 
         $messaging->purgeBodiesBefore($now->subDays((int) config('codex.retention.message_body_days')));
+        $drafts->purgeBefore($now->subDays((int) config('codex.retention.message_body_days')));
         $inbox->purgeNotesBefore($now->subDays((int) config('codex.retention.conversation_note_days')));
     }
 }

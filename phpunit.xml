@@ -36,6 +36,7 @@
         <env name="CODEX_SUBJECT_HASH_KEY" value="testing-subject-hash-key"/>
         <env name="CODEX_EMBEDDINGS_ENABLED" value="false"/>
         <env name="CODEX_PRICE_MAX_AGE_MINUTES" value="15"/>
+        <env name="CODEX_AI_PROVIDER" value="anthropic"/>
         <env name="CODEX_AI_MODEL" value="claude-haiku-5-5"/>
         <env name="ANTHROPIC_API_KEY" value=""/>
         <env name="VOYAGEAI_API_KEY" value=""/>

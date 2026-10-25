@@ -23,14 +23,26 @@ final class HandoffRules
 
     private const COMPLAINT = [
         'شكوي', 'اشتكي', 'مشكله', 'مشاكل', 'متاخر', 'تاخر', 'تالف', 'مكسور', 'خربان', 'خربانه', 'نصب', 'احتيال',
-        'زعلان', 'سيء', 'سيئ', 'اتاخر', 'اتاخرت', 'باظ', 'بايظ', 'complaint', 'problem', 'broken', 'damaged', 'scam', 'refund',
-        'ما وصل', 'ماوصل', 'لم يصل', 'ما جاني', 'ماجاني', 'وصلني غلط', 'رجعوا فلوسي', 'ابي فلوسي', 'never arrived', 'not arrived',
+        'زعلان', 'سيء', 'سيئ', 'اتاخر', 'اتاخرت', 'باظ', 'بايظ', 'complaint', 'broken', 'damaged', 'scam',
+        'ما وصل', 'ماوصل', 'لم يصل', 'ما وصلني', 'ماوصلني', 'ما وصلتني', 'لسه ما وصل', 'ما جاني', 'ماجاني', 'وصلني غلط',
+        'رجعوا فلوسي', 'ابي فلوسي', 'never arrived', 'not arrived', 'i want a refund', 'refund my',
     ];
 
+    /**
+     * What a customer says to bargain. Asking for "the cheapest perfume" is a
+     * sales question, not a discount request, so bare ارخص/cheaper stay out.
+     */
     private const DISCOUNT = [
-        'خصم', 'خصومات', 'كوبون', 'كوبونات', 'تخفيض', 'تخفيضات', 'عروض', 'ارخص', 'تفاوض', 'discount', 'coupon',
-        'promo', 'cheaper', 'deal', 'كود خصم', 'اخر سعر', 'اقل سعر', 'تنزل السعر', 'نزل السعر', 'تنزل لي السعر', 'نزل لي السعر', 'تنزلي', 'اتفاوض', 'في عرض',
-        'فيه عرض', 'عليه عرض', 'best price', 'last price', 'lower price',
+        'خصم', 'خصومات', 'كوبون', 'كوبونات', 'تخفيض', 'تخفيضات', 'عروض', 'تفاوض', 'اتفاوض', 'discount', 'coupon',
+        'promo', 'voucher', 'كود خصم', 'اخر سعر', 'اقل سعر', 'ارخص لي', 'تنزل السعر', 'نزل السعر', 'تنزل لي السعر',
+        'نزل لي السعر', 'تنزلي', 'في عرض', 'فيه عرض', 'عليه عرض', 'عرض خاص', 'سعر خاص', 'برومو',
+        'best price', 'last price', 'lower price', 'special price', 'special offer', 'promo code',
+    ];
+
+    /** What the agent must never write (Rule 9). Narrower: "عندنا عروض" or "الأرخص" are normal sales talk. */
+    private const DISCOUNT_OUT = [
+        'خصم', 'خصومات', 'كوبون', 'كوبونات', 'تخفيض', 'تخفيضات', 'كود خصم', 'سعر خاص', 'عرض خاص', 'برومو',
+        'discount', 'coupon', 'voucher', 'promo code', 'special price', 'special offer',
     ];
 
     public function check(string $message, ?int $cartHalalas = null, ?int $cartThresholdHalalas = null): ?HandoffReason
@@ -56,7 +68,7 @@ final class HandoffRules
     {
         $text = ArabicText::normalize(ArabicText::withoutArabicPunctuation($reply));
 
-        return self::matches($text, self::tokens($text), self::DISCOUNT);
+        return self::matches($text, self::tokens($text), self::DISCOUNT_OUT);
     }
 
     /**
@@ -77,6 +89,12 @@ final class HandoffRules
         return $tokens;
     }
 
+    /** "وما وصل لي" → "ما وصل لي": a glued "و" before a negation, so phrases still match. */
+    private static function peeled(string $text): string
+    {
+        return (string) preg_replace('/(^| )و(ما|لا|لم|لسه|لسا)(?= )/u', '$1$2', $text);
+    }
+
     /**
      * @param  array<string, true>  $tokens
      * @param  list<string>  $words
@@ -86,7 +104,9 @@ final class HandoffRules
         foreach ($words as $word) {
             $word = ArabicText::normalize($word);
 
-            if (str_contains($word, ' ') ? str_contains(' '.$text.' ', ' '.$word.' ') : isset($tokens[$word])) {
+            if (str_contains($word, ' ')
+                ? str_contains(' '.$text.' ', ' '.$word.' ') || str_contains(' '.self::peeled($text).' ', ' '.$word.' ')
+                : isset($tokens[$word])) {
                 return true;
             }
         }

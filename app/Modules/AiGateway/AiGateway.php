@@ -5,6 +5,7 @@ namespace App\Modules\AiGateway;
 use App\Modules\AiGateway\Data\AiReply;
 use App\Modules\AiGateway\Data\AiRequest;
 use App\Modules\AiGateway\Data\ChatTurn;
+use App\Modules\AiGateway\Demo\DemoModel;
 use App\Modules\AiGateway\Models\AiCall;
 use App\Modules\AiGateway\Sdk\GatewayAgent;
 use App\Modules\AiGateway\Sdk\ToolAdapter;
@@ -46,6 +47,14 @@ class AiGateway
 
     public function converse(AiRequest $request): AiReply
     {
+        // An unpriced model would bill without being counted against the cap (review: correctness #5).
+        if (! isset($this->pricing[$this->model])) {
+            Log::error('AI model has no price configured; refusing the call.', ['model' => $this->model]);
+            $call = $this->record($request, AiStatus::Failed, new TextUsage, 0, 0, 0, 'unpriced_model');
+
+            return AiReply::unavailable(AiStatus::Failed, $call->id);
+        }
+
         if ($this->spentTodayUsdMicros() >= $request->dailyCapUsdMicros) {
             $call = $this->record($request, AiStatus::CapReached, new TextUsage, 0, 0, 0);
 
@@ -70,10 +79,21 @@ class AiGateway
             $tools,
         ))->limitedTo($this->maxSteps, $this->maxOutputTokens, $this->timeoutSeconds);
 
+        $provider = $this->provider;
+
+        if ($provider === DemoModel::PROVIDER && ! GatewayAgent::isFaked()) {
+            if (! DemoModel::allowed()) {
+                return AiReply::unavailable(AiStatus::ProviderUnavailable);
+            }
+
+            DemoModel::script($last->text ?? '');
+            $provider = 'anthropic'; // The SDK needs a configured provider to fake.
+        }
+
         $started = hrtime(true);
 
         try {
-            $response = $agent->prompt($last->text ?? '', provider: $this->provider, model: $this->model);
+            $response = $agent->prompt($last->text ?? '', provider: $provider, model: $this->model);
         } catch (Throwable $exception) {
             Log::warning('AI provider unavailable; handing off.', ['error' => $exception::class]);
             $call = $this->record($request, AiStatus::ProviderUnavailable, new TextUsage, self::elapsedMs($started), count($recorder->outcomes), $pseudonyms->count(), $exception::class);
@@ -85,7 +105,7 @@ class AiGateway
         $call = $this->record($request, AiStatus::Ok, $response->usage, self::elapsedMs($started), count($recorder->outcomes), $pseudonyms->count(), cost: $cost);
 
         // The validator reads the model's own words, before names come back.
-        $validation = $this->validator->validate($response->text, $recorder->outcomes);
+        $validation = $this->validator->validate($response->text, $recorder->outcomes, $request->trustedTexts);
 
         return new AiReply(AiStatus::Ok, $pseudonyms->restore($response->text), $recorder->outcomes, $validation, $cost, $call->id);
     }
@@ -113,7 +133,7 @@ class AiGateway
         try {
             $response = Embeddings::for($texts)
                 ->dimensions($this->embeddings['dimensions'])
-                ->timeout($this->timeoutSeconds)
+                ->timeout(min(5, $this->timeoutSeconds)) // search must not hold the agent's turn
                 ->generate($this->embeddings['provider'], $this->embeddings['model']);
         } catch (Throwable $exception) {
             Log::warning('Embeddings provider unavailable.', ['error' => $exception::class]);

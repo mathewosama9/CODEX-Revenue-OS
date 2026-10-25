@@ -66,7 +66,8 @@ class SyncCatalog implements ShouldBeUnique, ShouldQueue
 
         // Only after a complete pass: a partial one must not delete anything.
         Product::query()
-            ->where('status', '!=', 'deleted')
+            // NULL != 'deleted' is not true in SQL: a product without a status would never leave (review #9).
+            ->where(fn ($query) => $query->whereNull('status')->orWhere('status', '!=', 'deleted'))
             ->pluck('external_id')
             ->reject(fn (string $id) => isset($seen[$id]))
             ->each(fn (string $id) => $recorder->removeProduct($id));

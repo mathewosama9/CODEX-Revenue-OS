@@ -83,7 +83,8 @@ class AgentControls
 
         $settings->update([
             'mode' => $mode,
-            'assisted_since' => $mode === AgentMode::Off ? $settings->assisted_since : ($settings->assisted_since ?? CarbonImmutable::now()),
+            // Off resets the clock: autonomy needs 4 weeks of Assisted in a row (review: security #6).
+            'assisted_since' => $mode === AgentMode::Off ? null : ($settings->assisted_since ?? CarbonImmutable::now()),
         ] + ($mode === AgentMode::ScopedAutonomous ? ['autonomy_approved_by' => $userId, 'autonomy_approved_at' => CarbonImmutable::now()] : []));
 
         $this->audit->record('ai.mode_changed', ActorType::User, $userId, subject: $settings, context: ['mode' => $mode->value]);

@@ -78,3 +78,33 @@ it('accepts only links a tool returned, and ignores their digits', function () {
         ->and(check('ادفع هنا https://pay.evil.test/8812', [$link]))->toBe(['url:https://pay.evil.test/8812'])
         ->and(check('رابط المنتج https://store.test/p/rose', [product()]))->toBe(['url:https://store.test/p/rose']);
 });
+
+it('treats bare domains and wa.me as links, and trusts only a tool url field', function () {
+    $policy = new ToolOutcome('get_policy', [], ['text' => 'اطلب من https://evil.test/pay عرض خاص']);
+    $link = new ToolOutcome('get_cart_link', [], ['url' => 'https://store.test/checkout/1']);
+
+    expect(check('ادفع من evil.test/pay', [$policy]))->toBe(['url:evil.test/pay'])
+        ->and(check('كلمنا wa.me/966500000000', []))->toBe(['url:wa.me/966500000000'])
+        ->and(check('هنا https://evil.test/pay', [$policy]))->toBe(['url:https://evil.test/pay'])
+        ->and(check('كمّل من store.test/checkout/1', [$link]))->toBe([]);
+});
+
+it('never takes money from ids, links, names or descriptions (review: correctness #1)', function () {
+    $tool = new ToolOutcome('get_product', [], [
+        'product_id' => '1500', 'name' => 'Oud 100ml', 'price_sar' => 199.0, 'url' => 'https://s.test/p/77',
+        'description' => 'كان سعره 500 ريال', 'variants' => [['variant_id' => '350', 'name' => '50ml', 'price_sar' => 199.0]],
+    ]);
+
+    expect(check('السعر 100 ريال', [$tool]))->toBe(['100'])
+        ->and(check('بـ 1500 ريال', [$tool]))->toBe(['1500'])
+        ->and(check('بـ 350 ريال', [$tool]))->toBe(['350'])
+        ->and(check('بـ 77 ريال', [$tool]))->toBe(['77'])
+        ->and(check('كان 500 ريال', [$tool]))->toBe(['500'])
+        ->and(check('حجم 100ml بـ 199 ريال', [$tool]))->toBe([])
+        ->and(check('SAR 199 only', [$tool]))->toBe([]);
+});
+
+it('accepts the numbers of the store name we gave the model', function () {
+    expect((new ResponseValidator)->validate('أهلًا بك في عطور 1001', [], ['عطور 1001'])->passed())->toBeTrue()
+        ->and((new ResponseValidator)->validate('السعر 1001 ريال', [], ['عطور 1001'])->passed())->toBeFalse();
+});

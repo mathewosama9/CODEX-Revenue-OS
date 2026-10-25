@@ -54,12 +54,12 @@ final class CatalogIndexer
             $batch[] = $product;
 
             if (count($batch) === 50) {
-                $this->upsert($batch);
+                $this->upsert($batch, retryMissing: true);
                 $batch = [];
             }
         }
 
-        $this->upsert($batch);
+        $this->upsert($batch, retryMissing: true);
 
         ProductSearchEntry::query()->whereNotIn('product_external_id', $listed === [] ? [''] : $listed)->delete();
 
@@ -69,7 +69,7 @@ final class CatalogIndexer
     /**
      * @param  list<ProductSnapshot>  $products
      */
-    private function upsert(array $products): void
+    private function upsert(array $products, bool $retryMissing = false): void
     {
         $toEmbed = [];
 
@@ -78,7 +78,12 @@ final class CatalogIndexer
             $hash = hash('sha256', $text);
             $entry = ProductSearchEntry::query()->firstOrNew(['product_external_id' => $product->externalId]);
 
-            if ($entry->exists && $entry->content_hash === $hash && $entry->embedded_at !== null) {
+            // Same words: nothing to do on every sync pass. A missing embedding is retried only by the nightly pass.
+            if ($entry->exists && $entry->content_hash === $hash) {
+                if ($retryMissing && $entry->embedded_at === null) {
+                    $toEmbed[$entry->id] = self::document($product);
+                }
+
                 continue;
             }
 

@@ -27,7 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Laravel renders no merchant pages: a signed-out browser goes to the app's sign-in.
         $middleware->redirectGuestsTo(fn () => config('app.frontend_url').'/ar/login');
     })
-    ->withCommands([__DIR__.'/../app/Modules/Platform/Console', __DIR__.'/../app/Modules/SalesAgent/Console'])
+    ->withCommands([__DIR__.'/../app/Modules/Platform/Console', __DIR__.'/../app/Modules/SalesAgent/Console', __DIR__.'/../app/Modules/Messaging/Console'])
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),

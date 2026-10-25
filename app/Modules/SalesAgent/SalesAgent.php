@@ -40,6 +40,8 @@ class SalesAgent
 {
     private const HISTORY = 20;
 
+    private const RETRY_DEADLINE_SECONDS = 30;
+
     public function __construct(
         private readonly TenantContext $tenants,
         private readonly AgentControls $controls,
@@ -82,6 +84,11 @@ class SalesAgent
 
         if ($skip !== null) {
             return $this->finish($run, AgentRun::SKIPPED, $skip);
+        }
+
+        // An image or a sticker: a person looks. Never answer an older question again (review: correctness #3).
+        if ($this->messaging->inboundText($inboundMessageId) === null) {
+            return $this->finish($run, AgentRun::SKIPPED, 'no_text');
         }
 
         // The customer wrote again: an older draft answers an older question.
@@ -177,6 +184,7 @@ class SalesAgent
     {
         $instructions = SystemPrompt::for($this->storeName());
         $trace = [];
+        $started = hrtime(true);
 
         for ($attempt = 1; $attempt <= 2; $attempt++) {
             $context = new RunContext($conversation->subjectHash);
@@ -188,6 +196,8 @@ class SalesAgent
                 dailyCapUsdMicros: $settings->daily_cap_usd_micros,
                 conversationRef: 'conv:'.$conversation->id,
                 subjectHash: $conversation->subjectHash,
+                knownNames: $this->knownNames(),
+                trustedTexts: [$this->storeName()],
             ));
 
             $run->attempts = $attempt;
@@ -197,8 +207,9 @@ class SalesAgent
                 $trace[] = array_filter([
                     'attempt' => $attempt,
                     'tool' => $tool->name,
-                    'product_id' => is_scalar($tool->arguments['product_id'] ?? null) ? (string) $tool->arguments['product_id'] : null,
-                    'topic' => is_scalar($tool->arguments['topic'] ?? null) ? (string) $tool->arguments['topic'] : null,
+                    // Ids only, capped: the model could put customer text in an argument (ADR-008).
+                    'product_id' => is_scalar($tool->arguments['product_id'] ?? null) ? mb_substr((string) $tool->arguments['product_id'], 0, 64) : null,
+                    'topic' => is_scalar($tool->arguments['topic'] ?? null) ? mb_substr((string) $tool->arguments['topic'], 0, 20) : null,
                     'failed' => $tool->failed ?: null,
                 ], fn ($value) => $value !== null);
             }
@@ -211,6 +222,8 @@ class SalesAgent
                 $context->handoff !== null => $context->handoff,
                 array_filter($reply->tools, fn ($tool) => $tool->failed) !== [] => HandoffReason::ToolFailed,
                 $context->policyMissing => HandoffReason::PolicyMissing,
+                // Rule 9 first: a reply that talks discounts is never retried, it goes to a person.
+                $this->rules->mentionsDiscount($reply->text) => HandoffReason::DiscountRequest,
                 default => null,
             };
 
@@ -219,14 +232,16 @@ class SalesAgent
             }
 
             if ($reply->validation->passed()) {
-                return match (true) {
-                    ! $reply->ok() => [null, HandoffReason::EmptyReply],
-                    $this->rules->mentionsDiscount($reply->text) => [null, HandoffReason::DiscountRequest],
-                    default => [$reply, null],
-                };
+                return $reply->ok() ? [$reply, null] : [null, HandoffReason::EmptyReply];
             }
 
             $run->validator_blocks++;
+
+            // No second try once the first one was slow: the job must finish and hand off (review: correctness #6).
+            if (hrtime(true) - $started > self::RETRY_DEADLINE_SECONDS * 1_000_000_000) {
+                break;
+            }
+
             $trace[] = ['attempt' => $attempt, 'blocked_numbers' => $reply->validation->unmatched];
             $run->trace = $trace;
             $instructions = SystemPrompt::for($this->storeName()).SystemPrompt::retryNote($reply->validation->unmatched);
@@ -237,6 +252,13 @@ class SalesAgent
 
     private function draft(AgentRun $run, ConversationSnapshot $conversation, string $text): AgentRun
     {
+        // Seconds have passed: a newer message has its own run, a takeover wants silence (review: correctness #4).
+        $fresh = $this->inbox->conversation($conversation->id);
+
+        if ($fresh === null || $fresh->aiPaused || $this->messaging->latestInboundId($fresh->subjectHash) !== $run->inbound_message_id) {
+            return $this->finish($run, AgentRun::SKIPPED, 'superseded');
+        }
+
         ReplyDraft::create([
             'agent_run_id' => $run->id,
             'conversation_id' => $conversation->id,
@@ -256,6 +278,10 @@ class SalesAgent
      */
     private function send(AgentRun $run, ConversationSnapshot $conversation, string $text): AgentRun
     {
+        if (! $this->maySendNow($run, $conversation)) {
+            return $this->finish($run, AgentRun::SKIPPED, 'stopped_before_send');
+        }
+
         if ($conversation->phone === null || ! $conversation->windowOpen(CarbonImmutable::now())) {
             return $this->handOff($run, $conversation, $this->controls->settings(), HandoffReason::AgentHandoff);
         }
@@ -277,11 +303,41 @@ class SalesAgent
         if ($settings->mode === AgentMode::ScopedAutonomous
             && $conversation->phone !== null
             && $conversation->windowOpen(CarbonImmutable::now())
-            && $this->quietHours->isQuiet(CarbonImmutable::now())) {
+            && $this->quietHours->isQuiet(CarbonImmutable::now())
+            && ! $this->messaging->sentSince($conversation->subjectHash, 'ai_night_handoff', CarbonImmutable::now()->subHours(12))
+            && $this->maySendNow($run, $conversation)) {
             $this->sender->sendServiceText($conversation->phone, (string) config('whatsapp_templates.ai_night_handoff'), ['source' => 'ai_night_handoff', 'agent_run_id' => $run->id]);
         }
 
         return $this->finish($run, AgentRun::HANDED_OFF, $reason->value);
+    }
+
+    /**
+     * The model call can take seconds. Right before anything leaves on its
+     * own, check again: the kill switch, a takeover, an opt-out, a newer
+     * customer message (review: security #2).
+     */
+    /** The job died (timeout, crash): the run must not stay "running"; a person takes it. */
+    public function abandon(int $inboundMessageId): void
+    {
+        $run = AgentRun::query()->where('inbound_message_id', $inboundMessageId)->where('status', 'running')->first();
+
+        if ($run !== null) {
+            $this->inbox->handOff($run->conversation_id, HandoffReason::ProviderUnavailable->conversationReason());
+            $run->update(['status' => AgentRun::HANDED_OFF, 'handoff_reason' => HandoffReason::ProviderUnavailable->value]);
+        }
+    }
+
+    private function maySendNow(AgentRun $run, ConversationSnapshot $conversation): bool
+    {
+        $fresh = $this->inbox->conversation($conversation->id);
+
+        return $this->controls->settings()->mode === AgentMode::ScopedAutonomous
+            && $fresh !== null
+            && ! $fresh->aiPaused
+            && $fresh->phone !== null
+            && $this->consent->mayMessage($fresh->phone)
+            && $this->messaging->latestInboundId($fresh->subjectHash) === $run->inbound_message_id;
     }
 
     private function finish(AgentRun $run, string $status, ?string $reason = null): AgentRun
@@ -328,6 +384,28 @@ class SalesAgent
         }
 
         return $turns;
+    }
+
+    /**
+     * Names we know and must hide from the model (ADR-008): the team's own
+     * members, who sign their replies. The store keeps no customer names
+     * (Salla gives us phones only); a name a customer types about themself is
+     * a known gap, written up in ADR-008.
+     *
+     * @return list<string>
+     */
+    private function knownNames(): array
+    {
+        $team = Team::query()->find($this->tenants->require());
+
+        if ($team === null) {
+            return [];
+        }
+
+        return array_values(array_unique(array_merge(...array_map(
+            fn (string $name) => [$name, ...array_filter(explode(' ', $name), fn ($part) => mb_strlen($part) >= 3)],
+            $team->members->pluck('name')->map(fn ($name) => (string) $name)->all(),
+        ))));
     }
 
     private function storeName(): string

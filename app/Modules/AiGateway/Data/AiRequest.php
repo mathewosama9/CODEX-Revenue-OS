@@ -10,6 +10,7 @@ final readonly class AiRequest
      * @param  list<ChatTurn>  $history  oldest first, the last turn is the customer's
      * @param  list<AgentTool>  $tools
      * @param  list<string>  $knownNames  personal names to hide from the model
+     * @param  list<string>  $trustedTexts  text we put in the instructions (e.g. the store name): its numbers are not invented
      */
     public function __construct(
         public string $purpose,
@@ -20,5 +21,6 @@ final readonly class AiRequest
         public ?string $conversationRef = null,
         public ?string $subjectHash = null,
         public array $knownNames = [],
+        public array $trustedTexts = [],
     ) {}
 }
