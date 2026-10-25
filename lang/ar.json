@@ -24,5 +24,8 @@
     "Enter the Salla discount code.": "أدخل كود الخصم المسجّل في سلة.",
     "Enter a discount above 0%.": "أدخل نسبة خصم أكبر من 0%.",
     "Set a monthly discount budget above 0.": "حدد ميزانية خصم شهرية أكبر من 0.",
-    "This cart no longer needs a decision.": "هذه السلة لم تعد تحتاج قرارًا (اشترى العميل أو رد)."
+    "This cart no longer needs a decision.": "هذه السلة لم تعد تحتاج قرارًا (اشترى العميل أو رد).",
+    "The file has no phone numbers.": "الملف لا يحتوي على أرقام جوال.",
+    "The file could not be read.": "تعذّرت قراءة الملف.",
+    "Up to :max rows per file.": "الحد الأقصى :max صفًا لكل ملف."
 }

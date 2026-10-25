@@ -7,6 +7,7 @@ import {
     MessagesSquare,
     RotateCcw,
     Settings,
+    ShieldCheck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -26,6 +27,7 @@ export const NAV: NavItem[] = [
     { path: '/onboarding', label: 'onboarding', icon: ClipboardCheck, permission: 'integrations:manage' },
     { path: '/recovery', label: 'recovery', icon: RotateCcw, permission: 'recovery:manage' },
     { path: '/approvals', label: 'approvals', icon: BadgePercent, permission: 'discounts:manage' },
+    { path: '/consent', label: 'consent', icon: ShieldCheck, permission: 'consent:import' },
     { path: '/report', label: 'report', icon: BarChart3, permission: 'reports:view' },
     { path: '/inbox', label: 'inbox', icon: MessagesSquare, permission: 'inbox:use' },
     { path: '/usage', label: 'usage', icon: Gauge, permission: 'billing:manage' },

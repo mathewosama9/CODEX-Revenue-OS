@@ -65,7 +65,10 @@ export async function request(
         headers['X-XSRF-TOKEN'] = token;
     }
 
-    if (body !== undefined) {
+    // FormData (file uploads) sets its own multipart boundary.
+    const isForm = body instanceof FormData;
+
+    if (body !== undefined && !isForm) {
         headers['Content-Type'] = 'application/json';
     }
 
@@ -73,7 +76,7 @@ export async function request(
         method,
         headers,
         credentials: 'include',
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     });
 
     if (!response.ok) {

@@ -3,13 +3,15 @@
 namespace App\Modules\Inbox\Notifications;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 /**
  * Tells the merchant's team a customer replied. No customer data in the mail.
  */
-class CustomerNeedsHuman extends Notification
+// Queued: a slow mail server must never stall or fail the Meta webhook (review H13).
+class CustomerNeedsHuman extends Notification implements ShouldQueue
 {
     use Queueable;
 

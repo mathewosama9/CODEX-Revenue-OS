@@ -24,6 +24,7 @@ enum TeamPermission: string
     case ViewProfitReport = 'reports:view';
     case ManageBilling = 'billing:manage';
     case ManageDataRequests = 'data-requests:manage';
+    case ImportConsent = 'consent:import';
     case ManageAutonomy = 'ai:autonomy';
 
     case UseInbox = 'inbox:use';

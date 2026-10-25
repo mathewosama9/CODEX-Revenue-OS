@@ -4,6 +4,7 @@ use App\Enums\TeamPermission;
 use App\Http\Controllers\Api\TeamMembersController;
 use App\Http\Middleware\EnsureTeamPermission;
 use App\Modules\Billing\Http\UsageController;
+use App\Modules\Compliance\Http\ConsentImportController;
 use App\Modules\Compliance\Http\DataRequestController;
 use App\Modules\Inbox\Http\InboxController;
 use App\Modules\Measurement\Http\MarginsController;
@@ -75,3 +76,8 @@ Route::get('billing/usage', UsageController::class)
 Route::post('data-requests', DataRequestController::class)
     ->middleware(EnsureTeamPermission::using(TeamPermission::ManageDataRequests))
     ->name('data-requests');
+
+Route::prefix('consent/imports')->middleware(EnsureTeamPermission::using(TeamPermission::ImportConsent))->group(function () {
+    Route::get('/', [ConsentImportController::class, 'index'])->name('consent.imports.index');
+    Route::post('/', [ConsentImportController::class, 'store'])->middleware('throttle:10,1')->name('consent.imports.store');
+});
