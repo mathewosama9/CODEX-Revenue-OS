@@ -128,11 +128,17 @@ class StartRecovery implements ShouldQueue
         });
     }
 
+    /**
+     * Arm-blind on purpose: any exposure counts, whatever happened to it later.
+     * Counting only live sequences capped the control arm (Holdout never ends)
+     * but not treatment sequences that were later cancelled, which skewed who
+     * re-enters each arm and inflated the report (P1/P2 review B3).
+     */
     private function recentlySequenced(string $subjectHash, int $days): bool
     {
         return RecoverySequence::query()
             ->where('subject_hash', $subjectHash)
-            ->whereIn('status', [SequenceStatus::Active, SequenceStatus::Holdout, SequenceStatus::Completed])
+            ->whereIn('status', [SequenceStatus::Active, SequenceStatus::Holdout, SequenceStatus::Completed, SequenceStatus::Cancelled])
             ->where('started_at', '>=', CarbonImmutable::now()->subDays($days))
             ->exists();
     }

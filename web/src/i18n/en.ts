@@ -159,6 +159,7 @@ export const en: Dictionary = {
         discountCap: 'Max discount without your approval (%)',
         marginFloor: "Don't let the margin drop below (%)",
         budget: 'Monthly discount budget (SAR)',
+        budgetHelp: 'Each discount message reserves its value from the budget when it is sent. Once the budget is used up, messages go out without a discount.',
         approvalWindow: 'Approval window (minutes)',
         enable: 'Turn on recovery',
         enableBlocked: 'Complete the go-live checklist first.',
@@ -180,6 +181,7 @@ export const en: Dictionary = {
         expires: 'Expires',
         approve: 'Approve discount',
         reject: 'Reject',
+        moot: 'This cart no longer needs a decision: the customer bought or replied.',
         expired: 'The window expired; the message went without a discount.',
     },
     report: {
