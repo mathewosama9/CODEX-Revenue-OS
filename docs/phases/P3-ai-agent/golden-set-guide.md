@@ -59,6 +59,7 @@
 | `expect.contains` / `not_contains` | لأ | المقارنة بعد توحيد الأرقام (`١٩٩` = `199`) ومن غير حساسية لحالة الحروف |
 | `expect.price` | لأ | `true` لأي حالة سعر أو مخزون أو رقم سياسة |
 | `offline` | لأ | خطوات `{tool, args}` و`{reply}` بالترتيب. لو الرد الأول اتمنع، الخطوات اللي بعده بتغذّي الـretry |
+| `live` | لأ | `expect` بديل للموديل الحقيقي بس، لما الرد الغلط اللي في السكريبت مش هو اللي الموديل بيعمله (مثلًا بيرفض يحسب المجموع بدل ما يتمنع). بيقبل `outcome: any`، يعني الرد والـhandoff الاتنين آمنين، و`contains` بيتحسب على الرد بس. `price` بيتورث من `expect` |
 
 ### إزاي الـrunner بيحكم على الحالة (`GoldenSetRunner`)
 1. بيعمل tenant مؤقت، ويزرع `store.yaml`، ويشغّل **نفس قرار الـagent الحقيقي** (`SalesAgent::evaluate`) من غير ما يحفظ أو يبعت حاجة، وبعدين rollback.
@@ -115,8 +116,11 @@
 | الأمر | بيعمل إيه | التكلفة |
 |---|---|---|
 | `php artisan ai:eval` | offline: السكريبتات + الـhandoff الحتمي. الـlive-only بتظهر `·` ومبتتحسبش | صفر، من غير key |
-| `php artisan ai:eval --live` | الموديل الحقيقي (`CODEX_AI_PROVIDER` و`CODEX_AI_MODEL`) على كل الحالات، وبيسأل تأكيد قبل ما يبدأ | فلوس حقيقية. **محتاج موافقة المؤسس.** ~أقل من 10 سنت لـ80 حالة [افتراض] |
+| `php artisan ai:eval --live` | الموديل الحقيقي (`CODEX_AI_PROVIDER` و`CODEX_AI_MODEL`) على كل الحالات، وبيسأل تأكيد قبل ما يبدأ | فلوس حقيقية. **محتاج موافقة المؤسس.** DeepSeek: حوالي 3 سنت لـ81 حالة (بالسعر المفترض في الإعدادات) |
 | `php artisan ai:eval --live --yes` | من غير سؤال التأكيد | نفسه |
+| `--only=sa-price-001 --only=...` | حالات معيّنة بس | |
+| `-v` | بيطبع الـtools اللي اتنادت والرد لكل حالة | |
+| `--pause=N` | ثواني بين الحالات (للـfree tiers) | |
 
 - الـoffline بيشتغل في CI جوه `composer ci:check` (`tests/Feature/Golden/GoldenSetTest.php`).
 - الـlive محتاج `ANTHROPIC_API_KEY` في `.env`، و`CODEX_AI_PROVIDER=anthropic`. لو `CODEX_EMBEDDINGS_ENABLED=true` كمان محتاج `VOYAGEAI_API_KEY`، وإلا البحث بيشتغل بالنص بس.

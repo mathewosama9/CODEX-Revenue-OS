@@ -9,7 +9,7 @@ namespace App\Modules\SalesAgent;
  */
 final class SystemPrompt
 {
-    public const VERSION = 'v1';
+    public const VERSION = 'v2';
 
     public static function for(string $storeName): string
     {
@@ -26,7 +26,7 @@ final class SystemPrompt
         - Every price, quantity, size or percentage you write must be copied exactly from a tool result in this turn. Write prices as digits with "ريال" (or "SAR" in English).
         - Never calculate: no totals, differences, savings or percentages. Never repeat a price the customer suggests unless get_product returned it.
         - Before any price or stock statement, call get_product for that product, even if you mentioned it earlier.
-        - If something is out of stock, say so; do not offer a link for it.
+        - If something is out of stock, say so; do not offer a link for it. If another size or variant of it is in stock, offer that one, with its size and price as get_product returned them.
         - Shipping, returns and other store questions: call get_policy and answer only from its text. If it returns found=false, call handoff with reason "unsure".
         - To help the customer buy, call get_cart_link and share the URL it returns.
 

@@ -9,6 +9,7 @@ use App\Modules\AiGateway\Testing\FakeLlm;
 use App\Modules\Commerce\CommerceRecorder;
 use App\Modules\Commerce\Data\ProductData;
 use App\Modules\Commerce\Data\VariantData;
+use App\Modules\Knowledge\CatalogIndexer;
 use App\Modules\Knowledge\KnowledgeBase;
 use App\Modules\Knowledge\KnowledgeKind;
 use App\Modules\SalesAgent\Models\EvalRun;
@@ -40,11 +41,12 @@ final class GoldenSetRunner
 
     /**
      * @param  Closure(CaseResult): void|null  $progress
+     * @param  list<string>  $only  case ids; empty runs them all
      * @return array{results: list<CaseResult>, run: EvalRun}
      */
-    public function run(bool $live, ?Closure $progress = null, int $pauseSeconds = 0): array
+    public function run(bool $live, ?Closure $progress = null, int $pauseSeconds = 0, array $only = []): array
     {
-        $cases = $this->set->cases();
+        $cases = array_values(array_filter($this->set->cases(), fn (GoldenCase $case) => $only === [] || in_array($case->id, $only, true)));
         $results = [];
 
         DB::beginTransaction();
@@ -104,32 +106,33 @@ final class GoldenSetRunner
 
         $decision = app(SalesAgent::class)->evaluate($case->turns, $subject);
         $problems = [];
+        $expect = $live && $case->live !== null ? $case->live : $case;
 
-        if ($case->outcome === 'draft' && $decision->text === null) {
+        if ($expect->outcome === 'draft' && $decision->text === null) {
             $problems[] = 'expected a reply, got handoff:'.$decision->handoff?->value;
         }
 
-        if ($case->outcome === 'handoff' && $decision->handoff === null) {
+        if ($expect->outcome === 'handoff' && $decision->handoff === null) {
             $problems[] = 'expected a handoff, got a reply';
         }
 
-        if ($case->reason !== null && $decision->handoff !== null && $decision->handoff->value !== $case->reason) {
-            $problems[] = "expected handoff {$case->reason}, got {$decision->handoff->value}";
+        if ($expect->reason !== null && $decision->handoff !== null && $decision->handoff->value !== $expect->reason) {
+            $problems[] = "expected handoff {$expect->reason}, got {$decision->handoff->value}";
         }
 
-        foreach (array_diff($case->tools, $decision->tools) as $tool) {
+        foreach (array_diff($expect->tools, $decision->tools) as $tool) {
             $problems[] = "did not call {$tool}";
         }
 
         $text = mb_strtolower(ResponseValidator::normalizeNumbers((string) $decision->text));
 
-        foreach ($case->contains as $needle) {
+        foreach ($decision->text === null && $expect->outcome === 'any' ? [] : $expect->contains as $needle) {
             if (! str_contains($text, mb_strtolower(ResponseValidator::normalizeNumbers($needle)))) {
                 $problems[] = "reply lacks \"{$needle}\"";
             }
         }
 
-        foreach ($case->notContains as $needle) {
+        foreach ($expect->notContains as $needle) {
             if ($decision->text !== null && str_contains($text, mb_strtolower(ResponseValidator::normalizeNumbers($needle)))) {
                 $problems[] = "reply contains \"{$needle}\"";
             }
@@ -137,7 +140,7 @@ final class GoldenSetRunner
 
         DB::table('carts')->where('phone_hash', $subject)->delete();
 
-        return new CaseResult($case, $problems === [] ? CaseResult::PASSED : CaseResult::FAILED, $problems, $decision->text, $decision->costUsdMicros);
+        return new CaseResult($case, $problems === [] ? CaseResult::PASSED : CaseResult::FAILED, $problems, $decision->text, $decision->costUsdMicros, $decision->tools);
     }
 
     /**
@@ -193,6 +196,9 @@ final class GoldenSetRunner
                 ), (array) ($product['variants'] ?? []))),
             ));
         }
+
+        // Index jobs wait for a commit that never comes (the run is rolled back): index in place.
+        app(CatalogIndexer::class)->reindexAll();
 
         $knowledge = app(KnowledgeBase::class);
 
