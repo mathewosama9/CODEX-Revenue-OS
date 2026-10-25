@@ -20,6 +20,68 @@ final class ArabicText
         'ة' => 'ه', 'ى' => 'ي', 'ؤ' => 'و', 'ئ' => 'ي',
     ];
 
+    /** Arabizi digits and digraphs, longest first. */
+    private const ARABIZI = [
+        'sh' => 'ش', 'ch' => 'ش', 'kh' => 'خ', 'gh' => 'غ', 'th' => 'ث', 'dh' => 'ذ',
+        'oo' => 'و', 'ou' => 'و', 'ee' => 'ي', 'aa' => 'ا',
+        '2' => 'ا', '3' => 'ع', '5' => 'خ', '6' => 'ط', '7' => 'ح', '8' => 'غ', '9' => 'ق',
+        'b' => 'ب', 't' => 'ت', 'j' => 'ج', 'g' => 'ج', 'h' => 'ه', 'd' => 'د', 'r' => 'ر', 'z' => 'ز',
+        's' => 'س', 'f' => 'ف', 'q' => 'ق', 'k' => 'ك', 'l' => 'ل', 'm' => 'م', 'n' => 'ن', 'w' => 'و',
+        'a' => 'ا', 'e' => 'ي', 'y' => 'ي', 'i' => 'ي', 'o' => 'و', 'u' => 'و', 'v' => 'ف', 'p' => 'ب', 'c' => 'ك', 'x' => 'كس',
+    ];
+
+    /**
+     * Basic Arabizi → Arabic letters, for search only (E09): "3ood" → "عود",
+     * "shanel" → "شانل". A short "e" inside a word is dropped, as Arabic
+     * spelling does. Approximate on purpose: trigram matching absorbs
+     * the rest.
+     */
+    public static function fromArabizi(string $text): string
+    {
+        $words = preg_split('/\s+/u', mb_strtolower(trim($text))) ?: [];
+
+        return implode(' ', array_map(function (string $word) {
+            if (! preg_match('/[a-z]/', $word)) {
+                return $word;
+            }
+
+            $first = $word[0];
+            $rest = (string) preg_replace('/(?<!e)e(?!e)/', '', substr($word, 1));
+            $word = (in_array($first, ['a', 'e'], true) ? 'ا' : $first).$rest;
+
+            return strtr($word, self::ARABIZI);
+        }, $words));
+    }
+
+    /**
+     * Arabic punctuation (؟ ، ؛ ٪ « ») sits in the Arabic Unicode block, so
+     * normalize() keeps it. Search and the agent's handoff rules strip it
+     * first. [Decision pending] normalize() itself is left unchanged because
+     * opt-out detection (Phase 1) depends on it; see STATUS.md.
+     */
+    public static function withoutArabicPunctuation(string $text): string
+    {
+        return str_replace(['؟', '،', '؛', '٪', '«', '»', '۔'], ' ', $text);
+    }
+
+    /**
+     * The forms a search query is matched in: normalized, plus its Arabizi
+     * reading when it has Latin letters.
+     *
+     * @return list<string>
+     */
+    public static function searchForms(string $text): array
+    {
+        $text = self::withoutArabicPunctuation($text);
+        $forms = [self::normalize($text)];
+
+        if (preg_match('/[a-z]/i', $text)) {
+            $forms[] = self::normalize(self::fromArabizi(self::digitsToLatin($text)));
+        }
+
+        return array_values(array_unique(array_filter($forms, fn (string $form) => $form !== '')));
+    }
+
     public static function digitsToLatin(string $text): string
     {
         return strtr($text, self::DIGITS);

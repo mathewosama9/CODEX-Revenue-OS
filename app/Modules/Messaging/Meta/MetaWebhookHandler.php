@@ -200,6 +200,7 @@ class MetaWebhookHandler implements WebhookHandler
                 $message->subject_hash,
                 $decision === OptOutDecision::OptOut,
                 $decision === OptOutDecision::Ambiguous,
+                $phone?->e164,
             );
         });
 

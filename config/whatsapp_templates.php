@@ -17,6 +17,9 @@ return [
 
     'opt_out_confirmation' => 'تم، ما راح نرسل لك عروض بعد اليوم. لو احتجت شي راسلنا هنا.',
 
+    // Scoped Autonomous only, after 22:00 (09 §9.11.3). [افتراض] wording to review with a Saudi speaker.
+    'ai_night_handoff' => 'وصلت رسالتك، وبيرد عليك أحد من فريقنا الصباح إن شاء الله.',
+
     'library' => [
         'cart_recovery_1' => [
             'name' => 'codex_cart_reminder_1_ar_v1',

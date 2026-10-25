@@ -5,6 +5,7 @@ namespace App\Modules\Commerce;
 use App\Modules\Commerce\Data\CartSnapshot;
 use App\Modules\Commerce\Data\LineItemData;
 use App\Modules\Commerce\Data\OrderSnapshot;
+use App\Modules\Commerce\Data\ProductSnapshot;
 use App\Modules\Commerce\Models\Cart;
 use App\Modules\Commerce\Models\CartItem;
 use App\Modules\Commerce\Models\Category;
@@ -205,6 +206,52 @@ class Commerce
             ->all());
     }
 
+    public function product(string $externalId): ?ProductSnapshot
+    {
+        $product = Product::query()->where('external_id', $externalId)->first();
+
+        return $product === null ? null : $this->productSnapshot($product, $this->categoryNames([$product->category_external_id]));
+    }
+
+    /**
+     * @param  list<string>  $externalIds
+     * @return array<string, ProductSnapshot>
+     */
+    public function products(array $externalIds): array
+    {
+        $products = Product::query()->whereIn('external_id', $externalIds)->get();
+        $categories = $this->categoryNames($products->pluck('category_external_id')->all());
+
+        return $products->mapWithKeys(fn (Product $product) => [$product->external_id => $this->productSnapshot($product, $categories)])->all();
+    }
+
+    /**
+     * The whole catalog for a reindex, a page at a time.
+     *
+     * @return iterable<ProductSnapshot>
+     */
+    public function catalog(): iterable
+    {
+        foreach (Product::query()->lazyById(200) as $product) {
+            yield $this->productSnapshot($product, $this->categoryNames([$product->category_external_id]));
+        }
+    }
+
+    /**
+     * The customer's latest abandoned cart that still has a checkout link.
+     */
+    public function openCartFor(string $phoneHash): ?CartSnapshot
+    {
+        $cart = Cart::query()->with(['items', 'customer'])
+            ->where('phone_hash', $phoneHash)
+            ->where('status', CartStatus::Abandoned)
+            ->whereNotNull('checkout_url')
+            ->latest('abandoned_at')
+            ->first();
+
+        return $cart === null ? null : $this->cartSnapshot($cart);
+    }
+
     public function isStoreActive(): bool
     {
         return $this->activeStore() !== null;
@@ -213,6 +260,40 @@ class Commerce
     private function activeStore(): ?StoreConnection
     {
         return StoreConnection::query()->where('status', StoreStatus::Active)->first();
+    }
+
+    /**
+     * @param  array<int|string|null>  $externalIds
+     * @return array<string, string>
+     */
+    private function categoryNames(array $externalIds): array
+    {
+        $ids = array_values(array_filter($externalIds, fn ($id) => $id !== null && $id !== ''));
+
+        return $ids === [] ? [] : Category::query()->whereIn('external_id', $ids)->pluck('name', 'external_id')->all();
+    }
+
+    /**
+     * @param  array<string, string>  $categories
+     */
+    private function productSnapshot(Product $product, array $categories): ProductSnapshot
+    {
+        return new ProductSnapshot(
+            externalId: $product->external_id,
+            name: $product->name,
+            sku: $product->sku,
+            categoryName: $product->category_external_id === null ? null : ($categories[$product->category_external_id] ?? null),
+            description: $product->description,
+            url: $product->url,
+            priceHalalas: $product->price_halalas,
+            regularPriceHalalas: $product->regular_price_halalas,
+            quantity: $product->quantity,
+            unlimitedQuantity: $product->unlimited_quantity,
+            status: $product->status,
+            isAvailable: $product->is_available,
+            variants: $product->variants ?? [],
+            syncedAt: $product->synced_at,
+        );
     }
 
     private function cartSnapshot(Cart $cart): CartSnapshot

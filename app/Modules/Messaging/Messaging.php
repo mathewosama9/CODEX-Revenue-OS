@@ -36,7 +36,7 @@ class Messaging
     /**
      * The latest messages with one customer, oldest first (inbox read view).
      *
-     * @return list<array{direction: string, body: string|null, template: string|null, status: string, at: string}>
+     * @return list<array{id: int, direction: string, body: string|null, template: string|null, status: string, source: string|null, at: string}>
      */
     public function conversation(string $subjectHash, int $limit = 50): array
     {
@@ -47,13 +47,42 @@ class Messaging
             ->get()
             ->reverse()
             ->map(fn (Message $message) => [
+                'id' => $message->id,
                 'direction' => $message->direction,
                 'body' => $message->body,
                 'template' => $message->template_name,
                 'status' => $message->status->value,
+                'source' => is_string($message->context['source'] ?? null) ? $message->context['source'] : null,
                 'at' => $message->created_at->toIso8601String(),
             ])
             ->all());
+    }
+
+    /** The newest customer message: an agent run for an older one is superseded. */
+    public function latestInboundId(string $subjectHash): ?int
+    {
+        $id = Message::query()->where('subject_hash', $subjectHash)->where('direction', Message::INBOUND)->max('id');
+
+        return $id === null ? null : (int) $id;
+    }
+
+    /** Text of one customer message; null for an image, a sticker or a deleted body. */
+    public function inboundText(int $messageId): ?string
+    {
+        $body = Message::query()->whereKey($messageId)->where('direction', Message::INBOUND)->first()?->body;
+
+        return $body === null || trim($body) === '' ? null : $body;
+    }
+
+    /** Was this kind of automatic message sent to the customer since then? */
+    public function sentSince(string $subjectHash, string $source, CarbonImmutable $since): bool
+    {
+        return Message::query()
+            ->where('subject_hash', $subjectHash)
+            ->where('direction', Message::OUTBOUND)
+            ->where('context->source', $source)
+            ->where('created_at', '>=', $since)
+            ->exists();
     }
 
     public function forgetSubject(string $subjectHash): int

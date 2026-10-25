@@ -113,15 +113,20 @@ export type ConversationSummary = {
     status: 'open' | 'pending' | 'closed';
     reason: string | null;
     assigned_user_id: number | null;
+    /** A member took over: the AI writes nothing here (US-E12-03). */
+    ai_paused: boolean;
     last_message_at: string;
 };
 
 export type Conversation = ConversationSummary & {
     messages: {
+        id: number;
         direction: string;
         body: string | null;
         template: string | null;
         status: string;
+        /** ai_draft | ai_autonomous | ai_night_handoff | null (a person or a template). */
+        source: string | null;
         at: string;
     }[];
     notes: { body: string; user_id: number | null; at: string }[];
@@ -143,4 +148,61 @@ export type ConsentImportSummary = {
     skipped_invalid: number;
     collected_via?: string;
     created_at?: string;
+};
+
+export type DraftStatus = 'pending' | 'sending' | 'approved' | 'edited' | 'rejected' | 'superseded' | 'expired' | 'failed';
+
+export type ReplyDraft = {
+    id: number;
+    conversation_id: number;
+    status: DraftStatus;
+    body: string;
+    final_body: string | null;
+    send_error: string | null;
+    decided_by: number | null;
+    decided_at: string | null;
+    at: string;
+    /** Only in the drafts list: masked by the API. */
+    phone?: string | null;
+};
+
+export type AgentRun = {
+    id: number;
+    status: 'running' | 'drafted' | 'sent' | 'handed_off' | 'skipped';
+    handoff_reason: string | null;
+    attempts: number;
+    validator_blocks: number;
+    tools: { attempt: number; tool?: string; product_id?: string; topic?: string; failed?: boolean; blocked_numbers?: string[] }[];
+    draft: ReplyDraft | null;
+    at: string;
+};
+
+export type AiActivity = { ai_paused: boolean; runs: AgentRun[] };
+
+export type AgentMode = 'off' | 'assisted' | 'scoped_autonomous';
+
+export type AgentSettings = {
+    mode: AgentMode;
+    daily_cap_usd: number;
+    max_daily_cap_usd: number;
+    spent_today_usd: number;
+    handoff_cart_sar: number | null;
+    assisted_days: number;
+    assisted_days_required: number;
+    autonomy_blockers: string[];
+    autonomy_confirmation: string;
+    auto_downgraded_at: string | null;
+    draft_quality: { approved: number; edited: number; rejected: number; edit_rate: number | null };
+    validator: { runs: number; blocked: number; rate: number | null };
+    model: string;
+};
+
+export type KnowledgeKind = 'faq' | 'shipping' | 'returns';
+
+export type KnowledgeDocument = {
+    id: number;
+    kind: KnowledgeKind;
+    title: string;
+    body: string;
+    updated_at: string;
 };

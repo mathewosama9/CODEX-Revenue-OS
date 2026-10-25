@@ -2,13 +2,22 @@
 
 namespace App\Providers;
 
+use App\Modules\AiGateway\AiGateway;
+use App\Modules\AiGateway\ResponseValidator;
+use App\Modules\Billing\UsageMeter;
 use App\Modules\Commerce\Commerce;
 use App\Modules\Commerce\CommerceAdapter;
+use App\Modules\Commerce\Events\ProductChanged;
 use App\Modules\Commerce\Salla\SallaAdapter;
 use App\Modules\Commerce\Salla\SallaClient;
 use App\Modules\Compliance\AuditLogger;
 use App\Modules\Compliance\QuietHours;
 use App\Modules\Inbox\Listeners\OpenConversation;
+use App\Modules\Knowledge\CatalogSearch;
+use App\Modules\Knowledge\HybridCatalogSearch;
+use App\Modules\Knowledge\KnowledgeBase;
+use App\Modules\Knowledge\KnowledgeRetriever;
+use App\Modules\Knowledge\Listeners\FollowCatalog;
 use App\Modules\Measurement\CostLedger;
 use App\Modules\Measurement\ExperimentAssigner;
 use App\Modules\Measurement\MarginLookup;
@@ -18,6 +27,10 @@ use App\Modules\Messaging\Events\MessageDelivered;
 use App\Modules\Messaging\Listeners\BookDeliveryCost;
 use App\Modules\Messaging\Meta\MetaGraphClient;
 use App\Modules\Recovery\Listeners\RecoveryListeners;
+use App\Modules\SalesAgent\AgentControls;
+use App\Modules\SalesAgent\Eval\GoldenSet;
+use App\Modules\SalesAgent\Listeners\AgentListeners;
+use App\Modules\SalesAgent\Toolbox;
 use App\Shared\Phone\SubjectHasher;
 use App\Shared\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
@@ -84,6 +97,43 @@ class AppServiceProvider extends ServiceProvider
             (string) config('codex.measurement.method_version'),
         ));
 
+        $this->app->bind(AiGateway::class, fn ($app) => new AiGateway(
+            $app->make(CostLedger::class),
+            $app->make(UsageMeter::class),
+            $app->make(ResponseValidator::class),
+            (string) config('codex.ai.provider'),
+            (string) config('codex.ai.model'),
+            (array) config('codex.ai.pricing_usd_per_mtok'),
+            (int) config('codex.ai.timeout_seconds'),
+            (int) config('codex.ai.max_steps'),
+            (int) config('codex.ai.max_output_tokens'),
+            [
+                'enabled' => (bool) config('codex.ai.embeddings.enabled'),
+                'provider' => (string) config('codex.ai.embeddings.provider'),
+                'model' => (string) config('codex.ai.embeddings.model'),
+                'dimensions' => (int) config('codex.ai.embeddings.dimensions'),
+                'usd_per_mtok' => (float) config('codex.ai.embeddings.usd_per_mtok'),
+            ],
+        ));
+
+        $this->app->bind(CatalogSearch::class, HybridCatalogSearch::class);
+
+        $this->app->bind(AgentControls::class, fn ($app) => new AgentControls(
+            $app->make(AuditLogger::class),
+            (int) round((float) config('codex.ai.default_daily_cap_usd') * 1_000_000),
+            (int) config('codex.ai.handoff_cart_halalas'),
+        ));
+
+        $this->app->bind(GoldenSet::class, fn () => new GoldenSet(base_path('evals/golden')));
+
+        $this->app->bind(Toolbox::class, fn ($app) => new Toolbox(
+            $app->make(CatalogSearch::class),
+            $app->make(KnowledgeRetriever::class),
+            $app->make(Commerce::class),
+            (int) config('codex.ai.price_max_age_minutes'),
+        ));
+        $this->app->bind(KnowledgeRetriever::class, KnowledgeBase::class);
+
         $this->app->singleton(QuietHours::class, fn () => new QuietHours(
             config('codex.quiet_hours.timezone'),
             config('codex.quiet_hours.default'),
@@ -108,7 +158,10 @@ class AppServiceProvider extends ServiceProvider
     {
         Event::listen(MessageDelivered::class, BookDeliveryCost::class);
         Event::subscribe(RecoveryListeners::class);
+        // Order matters: the conversation exists before the agent looks for it.
         Event::listen(InboundMessageReceived::class, OpenConversation::class);
+        Event::subscribe(AgentListeners::class);
+        Event::listen(ProductChanged::class, FollowCatalog::class);
     }
 
     /**
