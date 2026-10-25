@@ -8,7 +8,9 @@ use App\Modules\Measurement\CostKind;
 use App\Modules\Measurement\CostLedger;
 use App\Modules\Measurement\MarginLookup;
 use App\Modules\Recovery\Models\RecoverySettings;
+use App\Modules\Recovery\Models\ScheduledAction;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Discount rules in code, never in a model (Rule 9, ADR-014). The order of
@@ -17,7 +19,8 @@ use Carbon\CarbonImmutable;
  *  1. Message 1 never carries a discount (product rule, not a setting).
  *  2. Discounts must be switched on, with a registered code.
  *  3. The discount may not push any item's category margin below the floor → no discount.
- *  4. The monthly discount budget must not be exhausted → no discount.
+ *  4. The monthly budget must cover this discount, counting every discount
+ *     already sent this month as spent → no discount. No budget = no discounts.
  *  5. Above the cap, or for a customer who already bought before → owner approval.
  */
 class DiscountPolicy
@@ -44,8 +47,8 @@ class DiscountPolicy
             return DiscountDecision::none('below_margin_floor');
         }
 
-        if ($this->budgetExhausted($settings)) {
-            return DiscountDecision::none('budget_exhausted');
+        if (! $this->coversBudget($settings, $cart, $percent)) {
+            return DiscountDecision::none($settings->monthly_discount_budget_halalas <= 0 ? 'no_budget' : 'budget_exhausted');
         }
 
         if ($percent > $settings->discount_cap_percent) {
@@ -76,14 +79,35 @@ class DiscountPolicy
         return true;
     }
 
-    private function budgetExhausted(RecoverySettings $settings): bool
+    /** What this discount would cost if the customer used it. */
+    public static function expectedDiscountHalalas(CartSnapshot $cart, int $percent): int
     {
-        if ($settings->monthly_discount_budget_halalas <= 0) {
+        return intdiv($cart->totalHalalas * $percent, 100);
+    }
+
+    /**
+     * A hard monthly cap (Rule 9). Every discount message sent this month
+     * reserves its full expected value, because any of them may still be used;
+     * booked redemptions count when they are higher. No budget, no discounts.
+     */
+    public function coversBudget(RecoverySettings $settings, CartSnapshot $cart, int $percent): bool
+    {
+        $expectedHalalas = self::expectedDiscountHalalas($cart, $percent);
+        $budget = $settings->monthly_discount_budget_halalas;
+
+        if ($budget <= 0) {
             return false;
         }
 
-        $spentMicros = $this->ledger->spentMicros(CostKind::Discount, CarbonImmutable::now()->startOfMonth());
+        $monthStart = CarbonImmutable::now('Asia/Riyadh')->startOfMonth()->utc();
 
-        return $spentMicros >= $settings->monthly_discount_budget_halalas * 10_000;
+        $reserved = (int) ScheduledAction::query()
+            ->where('status', ActionStatus::Done)
+            ->where('updated_at', '>=', $monthStart)
+            ->sum(DB::raw("COALESCE((result->>'discount_reserved_halalas')::bigint, 0)"));
+
+        $booked = intdiv($this->ledger->spentMicros(CostKind::Discount, $monthStart), 10_000);
+
+        return max($reserved, $booked) + $expectedHalalas <= $budget;
     }
 }

@@ -56,7 +56,7 @@ class DemoStoreSeeder extends Seeder
             DB::table('categories')->insert(['tenant_id' => $t, 'external_id' => $id, 'name' => $name, 'created_at' => $now, 'updated_at' => $now]);
         }
 
-        DB::table('recovery_settings')->insert(['tenant_id' => $t, 'enabled' => false, 'discount_enabled' => true, 'discount_percent' => 10, 'discount_code' => 'BACK10', 'created_at' => $now, 'updated_at' => $now]);
+        DB::table('recovery_settings')->insert(['tenant_id' => $t, 'enabled' => false, 'discount_enabled' => true, 'discount_percent' => 10, 'discount_code' => 'BACK10', 'monthly_discount_budget_halalas' => 100_000, 'created_at' => $now, 'updated_at' => $now]);
 
         $tenants->run($t, function () use ($t, $hasher, $number, $now) {
             app(ExperimentAssigner::class)->experiment();

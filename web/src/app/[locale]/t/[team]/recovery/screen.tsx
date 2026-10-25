@@ -31,6 +31,7 @@ type NumberSpec = {
     scale?: number;
     min: number;
     max?: number;
+    help?: keyof Dictionary['recovery'];
 };
 
 // Bounds mirror RecoveryController::update (US-E05-06).
@@ -46,7 +47,7 @@ const DISCOUNT: NumberSpec[] = [
     { key: 'discount_percent', label: 'discountPercent', min: 0, max: 50 },
     { key: 'discount_cap_percent', label: 'discountCap', min: 0, max: 50 },
     { key: 'margin_floor_bps', label: 'marginFloor', scale: 100, min: 0, max: 100 },
-    { key: 'monthly_discount_budget_halalas', label: 'budget', scale: 100, min: 0 },
+    { key: 'monthly_discount_budget_halalas', label: 'budget', scale: 100, min: 1, help: 'budgetHelp' },
     { key: 'approval_window_minutes', label: 'approvalWindow', min: 15, max: 2880 },
 ];
 
@@ -177,10 +178,13 @@ function SettingsForm({ settings, onSaved }: { settings: RecoverySettings; onSav
                 min={spec.min}
                 max={spec.max}
                 className="w-40 font-numeric tabular-nums"
+                // An empty field would be sent as 0, which can switch a protection off (review B6).
+                required
                 value={values[spec.key]}
                 onChange={(event) => setValues({ ...values, [spec.key]: event.target.value })}
                 aria-invalid={errors[spec.key] ? true : undefined}
             />
+            {spec.help && !errors[spec.key] && <p className="text-xs text-muted-foreground">{t.recovery[spec.help]}</p>}
             {errors[spec.key] && <p className="text-xs text-destructive">{errors[spec.key]}</p>}
         </div>
     );
@@ -210,8 +214,10 @@ function SettingsForm({ settings, onSaved }: { settings: RecoverySettings; onSav
                                 id="discount_code"
                                 dir="ltr"
                                 className="w-40 font-numeric"
+                                required
                                 value={discountCode}
                                 onChange={(event) => setDiscountCode(event.target.value)}
+                                aria-invalid={errors.discount_code ? true : undefined}
                             />
                             {errors.discount_code && <p className="text-xs text-destructive">{errors.discount_code}</p>}
                         </div>

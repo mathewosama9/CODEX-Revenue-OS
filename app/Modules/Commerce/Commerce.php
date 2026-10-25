@@ -35,32 +35,46 @@ class Commerce
 
     /**
      * Ask the platform, at send time, whether the cart is still abandoned
-     * (S2 check #10). Fails safe: if we cannot tell, treat it as not abandoned.
+     * (S2 check #10). Only a confirmed purchase marks the cart purchased; an
+     * unreachable platform is "unknown", so the caller retries instead of
+     * giving up on the customer (P1/P2 review B4).
      */
-    public function isStillAbandoned(int $cartId): bool
+    public function liveCartStatus(int $cartId): LiveCartStatus
     {
         $cart = Cart::query()->find($cartId);
         $store = $this->activeStore();
 
-        if ($cart === null || $cart->status !== CartStatus::Abandoned || $store === null) {
-            return false;
+        if ($cart === null) {
+            return LiveCartStatus::Gone;
+        }
+
+        if ($cart->status !== CartStatus::Abandoned) {
+            return LiveCartStatus::Purchased;
+        }
+
+        if ($store === null) {
+            return LiveCartStatus::Unknown;
         }
 
         try {
             $live = $this->adapter->abandonedCart($store, $cart->external_id);
         } catch (Throwable $exception) {
-            Log::warning('Live cart check failed; not sending.', ['cart_id' => $cartId, 'error' => $exception::class]);
+            Log::warning('Live cart check failed; will retry.', ['cart_id' => $cartId, 'error' => $exception::class]);
 
-            return false;
+            return LiveCartStatus::Unknown;
         }
 
-        if ($live === null || $live->purchased) {
+        if ($live === null) {
+            return LiveCartStatus::Gone;
+        }
+
+        if ($live->purchased) {
             app(CommerceRecorder::class)->markCartPurchased($cart->external_id);
 
-            return false;
+            return LiveCartStatus::Purchased;
         }
 
-        return true;
+        return LiveCartStatus::Abandoned;
     }
 
     public function order(int $orderId): ?OrderSnapshot

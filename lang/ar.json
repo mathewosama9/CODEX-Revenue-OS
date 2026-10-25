@@ -20,5 +20,9 @@
     "You've been invited to join :teamName": "دعوة للانضمام إلى :teamName",
     ":inviterName has invited you to join the :teamName team.": "دعاك :inviterName للانضمام إلى مساحة عمل :teamName.",
     "Log in and visit your dashboard to accept or decline this invitation.": "سجّل الدخول لقبول الدعوة أو رفضها.",
-    "Log in": "تسجيل الدخول"
+    "Log in": "تسجيل الدخول",
+    "Enter the Salla discount code.": "أدخل كود الخصم المسجّل في سلة.",
+    "Enter a discount above 0%.": "أدخل نسبة خصم أكبر من 0%.",
+    "Set a monthly discount budget above 0.": "حدد ميزانية خصم شهرية أكبر من 0.",
+    "This cart no longer needs a decision.": "هذه السلة لم تعد تحتاج قرارًا (اشترى العميل أو رد)."
 }
