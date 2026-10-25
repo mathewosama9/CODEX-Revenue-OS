@@ -42,7 +42,7 @@ final class GoldenSetRunner
      * @param  Closure(CaseResult): void|null  $progress
      * @return array{results: list<CaseResult>, run: EvalRun}
      */
-    public function run(bool $live, ?Closure $progress = null): array
+    public function run(bool $live, ?Closure $progress = null, int $pauseSeconds = 0): array
     {
         $cases = $this->set->cases();
         $results = [];
@@ -52,12 +52,23 @@ final class GoldenSetRunner
         try {
             $team = Team::query()->create(['name' => (string) ($this->set->store()['name'] ?? 'Golden store'), 'slug' => 'golden-'.Str::lower(Str::random(10)), 'is_personal' => false]);
 
-            $results = $this->tenants->run($team->id, function () use ($cases, $live, $progress) {
+            $results = $this->tenants->run($team->id, function () use ($cases, $live, $progress, $pauseSeconds) {
                 $this->seed($this->set->store());
                 $results = [];
 
                 foreach ($cases as $case) {
                     $result = $this->runCase($case, $live);
+
+                    // Free provider tiers rate-limit: wait and try the case once more, so the run measures the model.
+                    if ($live && $pauseSeconds > 0 && in_array('expected a reply, got handoff:provider_unavailable', $result->problems, true)) {
+                        sleep($pauseSeconds * 3);
+                        $result = $this->runCase($case, $live);
+                    }
+
+                    if ($live && $pauseSeconds > 0) {
+                        sleep($pauseSeconds);
+                    }
+
                     $results[] = $result;
 
                     if ($progress !== null) {
