@@ -34,6 +34,9 @@ export default defineConfig<{ lang: 'ar' | 'en' }>({
                 APP_URL: `http://localhost:${API_PORT}`,
                 FRONTEND_URL: `http://localhost:${WEB_PORT}`,
                 SANCTUM_STATEFUL_DOMAINS: `localhost:${WEB_PORT}`,
+                // No paid key in E2E: canned AI replies, text-only search.
+                CODEX_AI_PROVIDER: 'demo',
+                CODEX_EMBEDDINGS_ENABLED: 'false',
             },
         },
         {

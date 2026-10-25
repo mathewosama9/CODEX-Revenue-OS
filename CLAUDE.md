@@ -13,7 +13,8 @@
 المؤسس بدأ التنفيذ يوم 2026-10-25 (خطة البناء في `docs/blueprint/16-build-plan-and-brand.md`):
 - **P0a** شغالة: المقابلات والمنصات في `docs/phases/P0/`، والحالة في `STATUS.md`.
 - **Sprint S0** (الأساس): Laravel 13، PostgreSQL، طبقة العزل بين التجار، وثيم البراند.
-- **P1 Backend** و**P2 الواجهة (Next.js في `web/`)** خلصوا ومدموجين في `main`. وبعدها 4 sessions صلّحت كل مشاكل المراجعة ([قائمة المشاكل](docs/reviews/2026-10-25-p1-p2-issues.md)). اللي جاي: **P3 الـAI Sales Agent** (E09/E10/E11).
+- **P1 Backend** و**P2 الواجهة (Next.js في `web/`)** خلصوا ومدموجين في `main`. وبعدها 4 sessions صلّحت كل مشاكل المراجعة ([قائمة المشاكل](docs/reviews/2026-10-25-p1-p2-issues.md)).
+- **P3 الـAI Sales Agent** (E09/E10/E11/E12b) متبني على `feat/P3-ai-agent`: Claude Haiku 5.5 بس ورا `AiGateway` ([ADR-007](docs/adr/ADR-007-ai-orchestration.md))، والـPII في [ADR-008](docs/adr/ADR-008-pii-and-llm.md). Assisted بس. مفيش key مدفوع اتستخدم، وتشغيل الـgolden set live مستني موافقة المؤسس. التفاصيل والقرارات المستنية في `STATUS.md`.
 - **Gate 0** لسه قايمة: مفيش تاجر حقيقي يتربط قبل ما ≥5 يدفعوا Proof Pilot.
 
 ## Critical Rules (بالنص من البرومبت الأصلي)
@@ -70,6 +71,8 @@
 - `composer ci:check` لكل الفحوصات: RTL check، وlint وtsc بتوع `web/`، وPint، وPHPStan، وPest.
 - `cd web && npm run e2e`: Playwright على الـAPI الحقيقي، بداتابيز `codex_e2e` وبورتات 8010/3010.
 - الـtests بتشتغل على PostgreSQL (`codex_testing`) مش SQLite، عشان isolation suite تبقى حقيقية.
+- الـAI محليًا من غير key: في `.env` حط `CODEX_AI_PROVIDER=demo` و`CODEX_EMBEDDINGS_ENABLED=false` و`CODEX_PRICE_MAX_AGE_MINUTES` رقم كبير (محلي بس). بعدين `php artisan codex:demo-message "بكم العود الكمبودي؟"` بيبعت رسالة عميل على مسار الـwebhook الحقيقي ([دليل P3](docs/phases/P3-ai-agent/testing-guide.md)).
+- `php artisan ai:eval`: الـgolden set offline (من غير key، وبيشتغل في CI). `php artisan ai:eval --live`: الموديل الحقيقي، **بفلوس، ومحتاج موافقة المؤسس** ([دليل الحالات](docs/phases/P3-ai-agent/golden-set-guide.md)).
 
 ## إمتى تستخدم أنهي Plugin
 | الشغل | Plugin / Skill |
