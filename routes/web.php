@@ -1,22 +1,11 @@
 <?php
 
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\Teams\TeamInvitationController;
-use App\Http\Middleware\EnsureTeamMembership;
-use App\Shared\Tenancy\SetTenantContext;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'welcome')->name('home');
+/*
+| Laravel is the API (ADR-002). Merchants use the Next.js app; anyone landing
+| here is sent there. Fortify's JSON routes, /api, /webhooks and the Filament
+| admin (/admin) are registered elsewhere.
+*/
 
-Route::prefix('{current_team}')
-    ->middleware(['auth', 'verified', EnsureTeamMembership::class, SetTenantContext::class])
-    ->group(function () {
-        Route::get('dashboard', DashboardController::class)->name('dashboard');
-    });
-
-Route::middleware(['auth'])->group(function () {
-    Route::post('invitations/{invitation}/accept', [TeamInvitationController::class, 'accept'])->name('invitations.accept');
-    Route::delete('invitations/{invitation}', [TeamInvitationController::class, 'decline'])->name('invitations.decline');
-});
-
-require __DIR__.'/settings.php';
+Route::redirect('/', config('app.frontend_url'))->name('home');

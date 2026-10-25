@@ -20,13 +20,6 @@ class PasswordResetTest extends TestCase
         $this->skipUnlessFortifyHas(Features::resetPasswords());
     }
 
-    public function test_reset_password_link_screen_can_be_rendered()
-    {
-        $response = $this->get(route('password.request'));
-
-        $response->assertOk();
-    }
-
     public function test_reset_password_link_can_be_requested()
     {
         Notification::fake();
@@ -38,23 +31,6 @@ class PasswordResetTest extends TestCase
         Notification::assertSentTo($user, ResetPassword::class);
     }
 
-    public function test_reset_password_screen_can_be_rendered()
-    {
-        Notification::fake();
-
-        $user = User::factory()->create();
-
-        $this->post(route('password.email'), ['email' => $user->email]);
-
-        Notification::assertSentTo($user, ResetPassword::class, function ($notification) {
-            $response = $this->get(route('password.reset', $notification->token));
-
-            $response->assertOk();
-
-            return true;
-        });
-    }
-
     public function test_password_can_be_reset_with_valid_token()
     {
         Notification::fake();
@@ -64,16 +40,14 @@ class PasswordResetTest extends TestCase
         $this->post(route('password.email'), ['email' => $user->email]);
 
         Notification::assertSentTo($user, ResetPassword::class, function ($notification) use ($user) {
-            $response = $this->post(route('password.update'), [
+            $response = $this->postJson(route('password.update'), [
                 'token' => $notification->token,
                 'email' => $user->email,
                 'password' => 'password',
                 'password_confirmation' => 'password',
             ]);
 
-            $response
-                ->assertSessionHasNoErrors()
-                ->assertRedirect(route('login'));
+            $response->assertOk();
 
             return true;
         });

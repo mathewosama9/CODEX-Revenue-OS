@@ -13,24 +13,6 @@ class EmailVerificationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_email_verification_screen_can_be_rendered()
-    {
-        $user = User::factory()->unverified()->create();
-
-        $response = $this->actingAs($user)->get(route('verification.notice'));
-
-        $response->assertOk();
-    }
-
-    public function test_unverified_users_are_redirected_to_the_email_verification_prompt(): void
-    {
-        $user = User::factory()->unverified()->create();
-
-        $response = $this->actingAs($user)->get(route('appearance.edit'));
-
-        $response->assertRedirect(route('verification.notice'));
-    }
-
     public function test_email_can_be_verified()
     {
         $user = User::factory()->unverified()->create();
@@ -48,7 +30,7 @@ class EmailVerificationTest extends TestCase
 
         Event::assertDispatched(Verified::class);
         $this->assertTrue($user->fresh()->hasVerifiedEmail());
-        $response->assertRedirect("/{$team->slug}/dashboard?verified=1");
+        $response->assertRedirect(config('fortify.home').'?verified=1');
     }
 
     public function test_email_is_not_verified_with_invalid_hash()
@@ -87,18 +69,6 @@ class EmailVerificationTest extends TestCase
         $this->assertFalse($user->fresh()->hasVerifiedEmail());
     }
 
-    public function test_verified_user_is_redirected_to_dashboard_from_verification_prompt(): void
-    {
-        $user = User::factory()->create();
-
-        Event::fake();
-
-        $response = $this->actingAs($user)->get(route('verification.notice'));
-
-        Event::assertNotDispatched(Verified::class);
-        $response->assertRedirect('/dashboard');
-    }
-
     public function test_already_verified_user_visiting_verification_link_is_redirected_without_firing_event_again(): void
     {
         $user = User::factory()->create();
@@ -113,7 +83,7 @@ class EmailVerificationTest extends TestCase
         );
 
         $this->actingAs($user)->get($verificationUrl)
-            ->assertRedirect("/{$team->slug}/dashboard?verified=1");
+            ->assertRedirect(config('fortify.home').'?verified=1');
 
         Event::assertNotDispatched(Verified::class);
         $this->assertTrue($user->fresh()->hasVerifiedEmail());
