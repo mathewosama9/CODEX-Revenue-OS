@@ -59,3 +59,18 @@ it('pauses a store from the admin, with a reason in the audit log', function () 
     expect($audit->actor_type)->toBe('admin')
         ->and(json_decode($audit->context, true)['reason'])->toBe('admin: جودة الرقم نزلت');
 });
+
+it('reads each store health once per row, not once per column (review H14)', function () {
+    foreach (range(1, 3) as $i) {
+        Team::factory()->create(['name' => "متجر {$i}"]);
+    }
+
+    $this->actingAs(adminWith2fa(), 'admin');
+
+    DB::enableQueryLog();
+    Livewire::test(TenantHealth::class)->assertOk();
+    $healthReads = collect(DB::getQueryLog())->filter(fn ($query) => str_contains($query['query'], 'from "store_connections"'))->count();
+
+    // One store_connections read per store row (3), not one per column (27).
+    expect($healthReads)->toBeLessThanOrEqual(3);
+});

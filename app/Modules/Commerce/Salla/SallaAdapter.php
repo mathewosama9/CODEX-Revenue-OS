@@ -4,6 +4,7 @@ namespace App\Modules\Commerce\Salla;
 
 use App\Modules\Commerce\CommerceAdapter;
 use App\Modules\Commerce\Data\CartData;
+use App\Modules\Commerce\Data\PageWindow;
 use App\Modules\Commerce\Data\TokenSet;
 use App\Modules\Commerce\Models\StoreConnection;
 use Carbon\CarbonImmutable;
@@ -20,9 +21,9 @@ class SallaAdapter implements CommerceAdapter
         private readonly SallaPayloadMapper $mapper,
     ) {}
 
-    public function abandonedCarts(StoreConnection $store, int $sinceMinutes): iterable
+    public function abandonedCarts(StoreConnection $store, int $sinceMinutes, ?PageWindow $window = null): iterable
     {
-        foreach ($this->client->paginate($store, 'carts/abandoned', ['offset' => $sinceMinutes, 'per_page' => 60]) as $row) {
+        foreach ($this->client->paginate($store, 'carts/abandoned', ['offset' => $sinceMinutes, 'per_page' => 60], $window) as $row) {
             yield $this->mapper->cart($row);
         }
     }
@@ -42,11 +43,11 @@ class SallaAdapter implements CommerceAdapter
         return is_array($body['data'] ?? null) ? $this->mapper->cart($body['data']) : null;
     }
 
-    public function ordersSince(StoreConnection $store, CarbonImmutable $since): iterable
+    public function ordersSince(StoreConnection $store, CarbonImmutable $since, ?PageWindow $window = null): iterable
     {
         $query = ['from_date' => $since->setTimezone('Asia/Riyadh')->toDateString(), 'per_page' => 60];
 
-        foreach ($this->client->paginate($store, 'orders', $query) as $row) {
+        foreach ($this->client->paginate($store, 'orders', $query, $window) as $row) {
             $order = $this->mapper->order($row);
 
             if ($order->placedAt->greaterThanOrEqualTo($since)) {
@@ -55,16 +56,16 @@ class SallaAdapter implements CommerceAdapter
         }
     }
 
-    public function products(StoreConnection $store): iterable
+    public function products(StoreConnection $store, ?PageWindow $window = null): iterable
     {
-        foreach ($this->client->paginate($store, 'products', ['per_page' => 60]) as $row) {
+        foreach ($this->client->paginate($store, 'products', ['per_page' => 60], $window) as $row) {
             yield $this->mapper->product($row);
         }
     }
 
-    public function categories(StoreConnection $store): iterable
+    public function categories(StoreConnection $store, ?PageWindow $window = null): iterable
     {
-        foreach ($this->client->paginate($store, 'categories') as $row) {
+        foreach ($this->client->paginate($store, 'categories', [], $window) as $row) {
             yield ['external_id' => (string) $row['id'], 'name' => (string) ($row['name'] ?? '')];
         }
     }

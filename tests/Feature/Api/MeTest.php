@@ -31,3 +31,16 @@ it('returns teams with role and permissions', function () {
 
     expect($ownerTeam['permissions'])->toContain('discounts:manage');
 });
+
+it('never changes the current workspace just by reading another one (review H12)', function () {
+    $user = User::factory()->create();
+    $first = Team::factory()->create();
+    $second = Team::factory()->create();
+    $first->members()->attach($user, ['role' => TeamRole::Owner->value]);
+    $second->members()->attach($user, ['role' => TeamRole::Owner->value]);
+    $user->switchTeam($first);
+
+    $this->actingAs($user)->getJson("/api/v1/teams/{$second->slug}/members")->assertOk();
+
+    expect($user->fresh()->current_team_id)->toBe($first->id);
+});

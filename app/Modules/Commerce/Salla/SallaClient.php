@@ -2,6 +2,7 @@
 
 namespace App\Modules\Commerce\Salla;
 
+use App\Modules\Commerce\Data\PageWindow;
 use App\Modules\Commerce\Models\StoreConnection;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -34,14 +35,18 @@ class SallaClient
     }
 
     /**
-     * Walk every page of a list endpoint.
+     * Walk the pages of a list endpoint: all of them, or one window that can
+     * be resumed from `$window->next`.
      *
      * @param  array<string, mixed>  $query
      * @return iterable<array<string, mixed>>
      */
-    public function paginate(StoreConnection $store, string $path, array $query = [], int $maxPages = 200): iterable
+    public function paginate(StoreConnection $store, string $path, array $query = [], ?PageWindow $window = null): iterable
     {
-        for ($page = 1; $page <= $maxPages; $page++) {
+        $window ??= new PageWindow;
+        $last = $window->from + $window->pages - 1;
+
+        for ($page = $window->from; $page <= $last; $page++) {
             $body = $this->get($store, $path, $query + ['page' => $page]);
 
             foreach ((array) ($body['data'] ?? []) as $row) {
@@ -53,9 +58,13 @@ class SallaClient
             $totalPages = (int) data_get($body, 'pagination.totalPages', data_get($body, 'pagination.total_pages', 1));
 
             if ($page >= $totalPages) {
+                $window->next = null;
+
                 return;
             }
         }
+
+        $window->next = $last + 1;
     }
 
     /**

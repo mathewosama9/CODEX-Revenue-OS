@@ -4,6 +4,7 @@ namespace App\Modules\Commerce;
 
 use App\Modules\Commerce\Data\CartData;
 use App\Modules\Commerce\Data\OrderData;
+use App\Modules\Commerce\Data\PageWindow;
 use App\Modules\Commerce\Data\ProductData;
 use App\Modules\Commerce\Data\TokenSet;
 use App\Modules\Commerce\Models\StoreConnection;
@@ -18,7 +19,7 @@ interface CommerceAdapter
     /**
      * @return iterable<CartData>
      */
-    public function abandonedCarts(StoreConnection $store, int $sinceMinutes): iterable;
+    public function abandonedCarts(StoreConnection $store, int $sinceMinutes, ?PageWindow $window = null): iterable;
 
     /** Null when the platform no longer has it as an abandoned cart. */
     public function abandonedCart(StoreConnection $store, string $externalId): ?CartData;
@@ -26,17 +27,17 @@ interface CommerceAdapter
     /**
      * @return iterable<OrderData>
      */
-    public function ordersSince(StoreConnection $store, CarbonImmutable $since): iterable;
+    public function ordersSince(StoreConnection $store, CarbonImmutable $since, ?PageWindow $window = null): iterable;
 
     /**
      * @return iterable<ProductData>
      */
-    public function products(StoreConnection $store): iterable;
+    public function products(StoreConnection $store, ?PageWindow $window = null): iterable;
 
     /**
      * @return iterable<array{external_id: string, name: string}>
      */
-    public function categories(StoreConnection $store): iterable;
+    public function categories(StoreConnection $store, ?PageWindow $window = null): iterable;
 
     /**
      * @return array{name: string|null, email: string|null}

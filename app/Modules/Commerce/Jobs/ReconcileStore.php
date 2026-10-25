@@ -5,6 +5,7 @@ namespace App\Modules\Commerce\Jobs;
 use App\Modules\Commerce\CommerceAdapter;
 use App\Modules\Commerce\CommerceRecorder;
 use App\Modules\Commerce\DiscoveredBy;
+use App\Modules\Commerce\Models\Category;
 use App\Modules\Commerce\Models\StoreConnection;
 use App\Modules\Commerce\Salla\SallaRateLimited;
 use App\Modules\Commerce\StoreStatus;
@@ -14,6 +15,7 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Salla retries a webhook only 3 times (~15 minutes). Polling catches what was
@@ -24,6 +26,17 @@ class ReconcileStore implements ShouldBeUnique, ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, TenantAware;
 
     private const MAX_LOOKBACK_MINUTES = 180;
+
+    /**
+     * Each 429 releases the job, and every release counts as an attempt: one
+     * attempt meant the first rate limit failed the whole cycle (review H4).
+     */
+    public int $tries = 5;
+
+    public int $timeout = 75;
+
+    /** @var list<int> */
+    public array $backoff = [30, 60, 120, 300];
 
     private const OVERLAP_MINUTES = 15;
 
@@ -48,6 +61,13 @@ class ReconcileStore implements ShouldBeUnique, ShouldQueue
         $gaps = 0;
 
         try {
+            // Categories change rarely; once a day keeps the margins screen complete (review H3).
+            if (Cache::add("commerce:categories-synced:{$this->tenantId}", true, now()->addDay())) {
+                foreach ($adapter->categories($store) as $category) {
+                    Category::query()->updateOrCreate(['external_id' => $category['external_id']], ['name' => $category['name']]);
+                }
+            }
+
             foreach ($adapter->abandonedCarts($store, $minutes) as $cart) {
                 $gaps += $recorder->recordAbandonedCart($cart, DiscoveredBy::Reconciliation) ? 1 : 0;
             }
