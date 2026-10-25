@@ -32,7 +32,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             router.replace(href('/login'));
         } else if (me && !team) {
             // Not a member of this workspace: back to the picker.
-            router.replace(href(''));
+            router.replace(href('/workspaces'));
         }
     }, [error, me, team, router, href]);
 
@@ -80,7 +80,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex h-full flex-col gap-6 p-4">
             <Lockup className="px-3" />
             <Link
-                href={href('')}
+                href={href('/workspaces')}
                 className="flex items-center justify-between rounded-md border px-3 py-2 text-sm hover:border-primary"
                 title={t.common.switchWorkspace}
             >

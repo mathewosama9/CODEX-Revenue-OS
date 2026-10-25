@@ -1,0 +1,55 @@
+// Shared by every site page: header, footer, badges, calls to action.
+// Saudi-leaning marketing Arabic; a Saudi speaker reviews it before publishing.
+export const common = {
+    brandSuffix: 'CODEX Commerce',
+    pilotBanner: 'احنا في مرحلة الـPilot، ومفتوحة لعدد محدود من المتاجر.',
+    nav: {
+        home: 'الرئيسية',
+        howItWorks: 'كيف يشتغل',
+        features: 'المميزات',
+        aiAgent: 'مساعد المبيعات',
+        pilot: 'الـPilot',
+        security: 'الأمان',
+        roadmap: 'خارطة الطريق',
+        faq: 'الأسئلة الشائعة',
+        contact: 'تواصل معنا',
+        privacy: 'الخصوصية',
+        terms: 'الشروط',
+        menu: 'القائمة',
+    },
+    cta: {
+        requestPilot: 'اطلب Proof Pilot',
+        seeHow: 'شوف كيف يشتغل',
+        signIn: 'ادخل',
+        contact: 'تواصل معنا',
+        roadmap: 'شوف خارطة الطريق',
+    },
+    status: {
+        live: 'متاح',
+        beta: 'تجريبي',
+        soon: 'قريبًا',
+    },
+    group: {
+        recovery: 'الاسترجاع',
+        measurement: 'القياس',
+        conversations: 'المحادثات',
+        compliance: 'الامتثال',
+        team: 'الفريق',
+        platform: 'المنصة',
+    },
+    horizon: {
+        now: 'الآن: الـPilot',
+        next: 'التالي',
+        launch: 'الإطلاق العام',
+        later: 'لاحقًا، حسب طلب العملاء',
+    },
+    example: 'مثال توضيحي',
+    footer: {
+        tagline: 'ربح محسوب.',
+        company: 'CODEX AI Systems',
+        trademark: 'واتساب علامة تجارية مملوكة لـMeta. سلة علامة تجارية لأصحابها.',
+        product: 'المنتج',
+        companyLinks: 'الشركة',
+        legal: 'قانوني',
+    },
+};

@@ -83,6 +83,56 @@ export const en: Dictionary = {
         drafts: 'Suggested replies',
         knowledge: 'Store info',
         ai: 'AI',
+        overview: 'Overview',
+    },
+    overview: {
+        title: 'Overview',
+        subtitle: 'Your store at a glance, with a link from each card to its page.',
+        open: 'Open',
+        setup: {
+            title: 'Finish setup',
+            progress: '{done} of {total} steps done.',
+            body: 'Cart recovery cannot start until every step is done.',
+            action: 'Open the setup steps',
+        },
+        profit: {
+            period: 'Last 28 days',
+            collecting: 'Still collecting data',
+            action: 'Open the report',
+        },
+        recovery: {
+            title: 'Cart recovery',
+            action: 'Manage recovery',
+        },
+        approvals: {
+            title: 'Discount approvals',
+            waiting: '{n} waiting for you',
+            none: 'No approvals waiting.',
+        },
+        drafts: {
+            title: 'Suggested replies',
+            waiting: '{n} waiting for review',
+            none: 'No replies waiting for review.',
+        },
+        inbox: {
+            title: 'Open conversations',
+            open: '{n} open',
+            none: 'No open conversations.',
+        },
+        ai: {
+            title: 'Sales assistant',
+            spent: 'Spent today: {spent} of a {cap} limit',
+        },
+        usage: {
+            title: 'This month’s usage',
+            messages: 'Messages delivered',
+            carts: 'Abandoned carts',
+        },
+        soon: {
+            title: 'Next in CODEX',
+            body: 'What we are working on now. The order follows what merchants ask for.',
+            action: 'Roadmap',
+        },
     },
     onboarding: {
         title: 'Store setup',
