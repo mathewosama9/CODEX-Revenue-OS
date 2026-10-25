@@ -64,6 +64,7 @@ arch('agent tools never move money or change orders (Rule 9)')
         'App\Modules\Commerce\CommerceAdapter',
         'App\Modules\Commerce\CommerceRecorder',
         'App\Modules\Commerce\Salla',
+        'App\Modules\Commerce\WooCommerce',
         'Illuminate\Support\Facades\Http',
         'Illuminate\Support\Facades\DB',
     ]);

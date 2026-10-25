@@ -2,12 +2,12 @@
 
 namespace App\Modules\Commerce\Salla;
 
-use RuntimeException;
+use App\Modules\Commerce\PlatformRateLimited;
 
-class SallaRateLimited extends RuntimeException
+class SallaRateLimited extends PlatformRateLimited
 {
-    public function __construct(public readonly int $retryAfterSeconds)
+    public function __construct(int $retryAfterSeconds)
     {
-        parent::__construct("Salla rate limit hit; retry after {$retryAfterSeconds}s.");
+        parent::__construct($retryAfterSeconds, 'Salla');
     }
 }

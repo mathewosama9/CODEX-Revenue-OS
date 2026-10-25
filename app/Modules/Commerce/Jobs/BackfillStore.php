@@ -2,13 +2,13 @@
 
 namespace App\Modules\Commerce\Jobs;
 
-use App\Modules\Commerce\CommerceAdapter;
+use App\Modules\Commerce\CommerceAdapters;
 use App\Modules\Commerce\CommerceRecorder;
 use App\Modules\Commerce\Data\PageWindow;
 use App\Modules\Commerce\DiscoveredBy;
 use App\Modules\Commerce\Models\Category;
 use App\Modules\Commerce\Models\StoreConnection;
-use App\Modules\Commerce\Salla\SallaRateLimited;
+use App\Modules\Commerce\PlatformRateLimited;
 use App\Modules\Commerce\StoreStatus;
 use App\Shared\Tenancy\TenantAware;
 use Carbon\CarbonImmutable;
@@ -50,13 +50,15 @@ class BackfillStore implements ShouldQueue
         public ?string $ordersSince = null,
     ) {}
 
-    public function handle(CommerceAdapter $adapter, CommerceRecorder $recorder): void
+    public function handle(CommerceAdapters $adapters, CommerceRecorder $recorder): void
     {
         $store = StoreConnection::query()->where('status', StoreStatus::Active)->first();
 
         if ($store === null) {
             return;
         }
+
+        $adapter = $adapters->for($store);
 
         $ordersSince = $this->ordersSince ?? CarbonImmutable::now()->subDays(90)->toIso8601String();
         $window = new PageWindow($this->page, self::PAGES_PER_JOB);
@@ -72,7 +74,7 @@ class BackfillStore implements ShouldQueue
                 'orders' => $this->each($adapter->ordersSince($store, CarbonImmutable::parse($ordersSince), $window), fn ($order) => $recorder->recordOrder($order)),
                 default => null,
             };
-        } catch (SallaRateLimited $exception) {
+        } catch (PlatformRateLimited $exception) {
             $this->release($exception->retryAfterSeconds);
 
             return;

@@ -206,3 +206,26 @@ export type KnowledgeDocument = {
     body: string;
     updated_at: string;
 };
+
+export type StoreProvider = 'salla' | 'woocommerce';
+
+/** GET /commerce/store: platform and site only, never a key or secret. */
+export type StoreStatus = {
+    connected: boolean;
+    store: {
+        provider: StoreProvider;
+        store_id: string;
+        site_url: string | null;
+        name: string | null;
+        status: string;
+        last_webhook_at: string | null;
+    } | null;
+};
+
+/** The WooCommerce connect / rotate answer: the secret is in it once, never again. */
+export type WooConnection = {
+    store_id: string;
+    connector_secret: string;
+    api_base: string;
+    webhook_url: string;
+};

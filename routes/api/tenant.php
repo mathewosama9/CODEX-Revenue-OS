@@ -4,6 +4,8 @@ use App\Enums\TeamPermission;
 use App\Http\Controllers\Api\TeamMembersController;
 use App\Http\Middleware\EnsureTeamPermission;
 use App\Modules\Billing\Http\UsageController;
+use App\Modules\Commerce\Http\StoreController;
+use App\Modules\Commerce\Http\WooCommerceController;
 use App\Modules\Compliance\Http\ConsentImportController;
 use App\Modules\Compliance\Http\DataRequestController;
 use App\Modules\Inbox\Http\InboxController;
@@ -44,6 +46,15 @@ Route::prefix('whatsapp')->middleware(EnsureTeamPermission::using(TeamPermission
     Route::post('embedded-signup', [WhatsAppController::class, 'completeSignup'])->name('whatsapp.signup');
     Route::post('templates/submit-library', [WhatsAppController::class, 'submitTemplates'])->name('whatsapp.templates.submit');
     Route::post('templates/sync', [WhatsAppController::class, 'syncTemplates'])->name('whatsapp.templates.sync');
+});
+
+Route::prefix('commerce')->middleware(EnsureTeamPermission::using(TeamPermission::ManageIntegrations))->group(function () {
+    Route::get('store', [StoreController::class, 'show'])->name('commerce.store');
+
+    // WooCommerce trials (docs/integrations/woocommerce-connector.md §1).
+    Route::post('woocommerce', [WooCommerceController::class, 'connect'])->middleware('throttle:10,1')->name('commerce.woocommerce.connect');
+    Route::post('woocommerce/rotate-secret', [WooCommerceController::class, 'rotateSecret'])->middleware('throttle:10,1')->name('commerce.woocommerce.rotate');
+    Route::delete('woocommerce', [WooCommerceController::class, 'disconnect'])->name('commerce.woocommerce.disconnect');
 });
 
 Route::prefix('recovery')->group(function () {

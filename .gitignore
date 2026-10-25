@@ -42,3 +42,6 @@ yarn-error.log
 /boost.json
 /opencode.json
 /opencode.jsonc
+
+# Built by scripts/build-wp-plugin.sh
+web/public/downloads/*.zip
