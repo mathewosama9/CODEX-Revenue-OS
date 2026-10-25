@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 
+import { AiPanel } from '@/components/ai';
 import { Assignee, useMembers } from '@/components/inbox';
 import { QueryState } from '@/components/query-state';
 import { Section } from '@/components/section';
@@ -73,12 +74,17 @@ export default function ConversationPage() {
 
                                     return (
                                         <li
-                                            key={index}
+                                            key={message.id ?? index}
                                             className={cn(
                                                 'flex max-w-[85%] flex-col gap-1 rounded-xl px-4 py-2.5 text-sm',
                                                 inbound ? 'self-start rounded-ss-none bg-muted' : 'self-end rounded-se-none bg-accent',
                                             )}
                                         >
+                                            {message.source?.startsWith('ai_') && (
+                                                <span className="text-xs text-muted-foreground" data-testid="ai-message">
+                                                    {message.source === 'ai_draft' ? t.ai.fromAiApproved : t.ai.fromAi}
+                                                </span>
+                                            )}
                                             {message.template && (
                                                 <span className="text-xs text-muted-foreground">
                                                     {t.inbox.template}: <span dir="ltr">{message.template}</span>
@@ -98,6 +104,8 @@ export default function ConversationPage() {
                         </Section>
 
                         <div className="flex flex-col gap-6">
+                            <AiPanel conversation={data} />
+
                             <Section title={t.inbox.status}>
                                 <div className="flex flex-wrap gap-1">
                                     {STATUSES.map((status) => (

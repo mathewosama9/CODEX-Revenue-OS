@@ -22,6 +22,9 @@ export type Permission =
     | 'member:remove'
     | 'consent:import'
     | 'ai:kill-switch'
+    | 'ai-drafts:review'
+    | 'ai:autonomy'
+    | 'knowledge:manage'
     | (string & {});
 
 export type TeamMembership = {
