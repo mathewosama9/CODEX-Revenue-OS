@@ -1,16 +1,23 @@
 import { expect, reseed, signIn, test } from './fixtures';
 
 // The P1 journey a merchant does with our support:
-// login → onboarding → enable → report → approval → inbox.
+// login → overview → onboarding → enable → report → approval → inbox.
 test.describe('owner journey', () => {
     test.beforeAll(reseed);
 
     test('from sign-in to a handled conversation', async ({ page, lang, t }) => {
         await signIn(page, lang, t, 'owner@demo.test');
 
-        // One workspace: straight into onboarding, in the right direction.
-        await expect(page).toHaveURL(new RegExp(`/${lang}/t/[^/]+/onboarding$`));
+        // One workspace: straight into the overview, in the right direction.
+        await expect(page).toHaveURL(new RegExp(`/${lang}/t/[^/]+/overview$`));
         await expect(page.locator('html')).toHaveAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+        await expect(page.getByRole('heading', { name: t.overview.title })).toBeVisible();
+
+        // Setup is not finished yet, so that card comes first and leads to onboarding.
+        const setup = page.getByTestId('overview-setup');
+        await expect(page.getByTestId('overview').locator(':scope > *').first()).toHaveAttribute('data-testid', 'overview-setup');
+        await setup.getByRole('link', { name: t.overview.setup.action }).click();
+        await expect(page).toHaveURL(new RegExp(`/${lang}/t/[^/]+/onboarding$`));
         await expect(page.getByRole('heading', { name: t.onboarding.title })).toBeVisible();
 
         // The checklist is green except margins.

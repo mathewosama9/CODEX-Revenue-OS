@@ -6,6 +6,7 @@ import {
     ClipboardCheck,
     FileLock2,
     Gauge,
+    LayoutDashboard,
     MessageSquareText,
     MessagesSquare,
     RotateCcw,
@@ -27,6 +28,7 @@ export type NavItem = {
 
 // Hidden when the user lacks the permission; the API refuses anyway.
 export const NAV: NavItem[] = [
+    { path: '/overview', label: 'overview', icon: LayoutDashboard, permission: null },
     { path: '/onboarding', label: 'onboarding', icon: ClipboardCheck, permission: 'integrations:manage' },
     { path: '/recovery', label: 'recovery', icon: RotateCcw, permission: 'recovery:manage' },
     { path: '/approvals', label: 'approvals', icon: BadgePercent, permission: 'discounts:manage' },
@@ -41,7 +43,10 @@ export const NAV: NavItem[] = [
     { path: '/settings', label: 'settings', icon: Settings, permission: null },
 ];
 
-/** First screen the member is allowed to open. */
+/** First screen after sign-in: the overview, which every member may open (its cards follow their permissions). */
 export function homeFor(team: TeamMembership): string {
-    return NAV.find((item) => item.permission !== null && team.permissions.includes(item.permission))?.path ?? '/settings';
+    // Kept so a per-role home can come back without touching the callers.
+    void team;
+
+    return '/overview';
 }

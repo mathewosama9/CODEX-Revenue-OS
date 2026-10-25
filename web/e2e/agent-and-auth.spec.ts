@@ -19,11 +19,12 @@ test.describe('agent and sign-in', () => {
 
     test('an agent only sees the inbox', async ({ page, lang, t }) => {
         await signIn(page, lang, t, 'agent@demo.test');
-        await expect(page).toHaveURL(new RegExp(`/${lang}/t/[^/]+/inbox$`));
+        await expect(page).toHaveURL(new RegExp(`/${lang}/t/[^/]+/overview$`));
 
-        // Inbox, the AI's suggested replies and their own settings, nothing else.
+        // The overview, inbox, the AI's suggested replies and their own settings, nothing else.
         const nav = page.getByRole('navigation');
-        await expect(nav.getByRole('link')).toHaveCount(3);
+        await expect(nav.getByRole('link')).toHaveCount(4);
+        await expect(nav.getByRole('link', { name: t.nav.overview })).toBeVisible();
         await expect(nav.getByRole('link', { name: t.nav.inbox })).toBeVisible();
         await expect(nav.getByRole('link', { name: t.nav.drafts })).toBeVisible();
         await expect(nav.getByRole('link', { name: t.nav.settings })).toBeVisible();
