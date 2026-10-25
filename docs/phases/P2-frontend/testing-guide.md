@@ -5,18 +5,15 @@
 
 ## 1. Run it locally
 
-You need two servers: Laravel (the API) and Next.js (the app). Open both on `localhost`, not `127.0.0.1`, or the session cookie won't be shared. The app uses port **3001** because 3000 is taken by another project on the founder's machine.
+`composer dev` starts everything: Laravel (the API) on 8000, the queue, the logs, and the Next.js app on 3001. Open both on `localhost`, not `127.0.0.1`, or the session cookie won't be shared. The app uses port **3001** because 3000 is taken by another project on the founder's machine.
 
 ```bash
 docker compose up -d pgsql
 php artisan migrate
 php artisan db:seed --class=DemoStoreSeeder   # demo store; see §2 (skip if you have your own data)
-composer dev                                  # Laravel on http://localhost:8000
-
-cd web
-cp .env.example .env.local                    # first time only
-npm install                                   # first time only
-npm run dev                                   # the app on http://localhost:3001
+cp web/.env.example web/.env.local            # first time only
+npm --prefix web install                      # first time only
+composer dev                                  # API on :8000 + app on :3001
 ```
 
 Open http://localhost:3001. Arabic (RTL) is the default; the language switch is at the top of every page.
@@ -75,7 +72,7 @@ The journeys: login → onboarding (margins) → enable → settings bounds → 
 | Auth | Sanctum SPA: session cookie + XSRF token from `/sanctum/csrf-cookie`; Fortify's `/login`, `/register`, `/forgot-password`, `/reset-password`, `/two-factor-challenge`. **No tokens in localStorage** |
 | Data | Fetched in the browser from `/api/v1/teams/{team}/…`. Nothing about merchants or customers is stored in Next.js; the phone number comes masked from the API; exports go straight to a file |
 | Language | Routes are `/ar/…` and `/en/…`; `<html dir>` follows. Copy lives in `web/src/i18n/ar.ts` and `en.ts` |
-| Brand | Tokens copied from `resources/css/app.css`; `KpiCard`, `DeltaBadge`, `RangeEstimate` and the `revenue` button copied as they are. One gold element per screen: incremental profit on the report, "Approve discount" on approvals (only the most urgent request gets the gold button) |
+| Brand | Tokens from the brand theme (now only in `web/src/app/globals.css`); `KpiCard`, `DeltaBadge`, `RangeEstimate` and the `revenue` button copied as they are. One gold element per screen: incremental profit on the report, "Approve discount" on approvals (only the most urgent request gets the gold button) |
 | Permissions | The menu hides what `me.teams[].permissions` doesn't allow; the API refuses anyway |
 | Workspace pages | Each is a thin server `page.tsx` + a client `screen.tsx`, with `instant = false` (data is per merchant, so nothing is prerendered) |
 
@@ -86,7 +83,6 @@ The journeys: login → onboarding (margins) → enable → settings bounds → 
 | WhatsApp connect button works for real | Needs a Meta app and a Facebook Login for Business configuration | `NEXT_PUBLIC_META_APP_ID` and `NEXT_PUBLIC_META_CONFIG_ID` in `web/.env.local`. Until then the screen says the connection isn't enabled |
 | Connect Salla from the app | By design: the merchant installs our app from the Salla app store, and the connection appears on its own | — |
 | Settings (profile, password, 2FA setup, inviting an agent) in Next.js | The backend has no JSON API for these yet, and CORS only allows the login routes | Backend change (decision §7) |
-| Removing the old Inertia scaffold | It still serves the settings pages and the password-reset link | After the settings move to Next.js |
 | Assigning a conversation to a named teammate | The API has no member list; today you can "take" a conversation or release it | `GET /teams/{team}/members` |
 | Arabic validation messages | Laravel has no `lang/ar`, so server errors come back in English | Arabic translation files |
 
