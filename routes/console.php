@@ -21,25 +21,26 @@ Schedule::call(function () {
 })->daily()->description('Delete expired team invitations');
 
 /*
-| Commerce (M02). Fan out one job per Salla tenant; each job runs inside its
-| own tenant and checks its own state.
+| Commerce (M02). Fan out one job per commerce tenant (Salla or WooCommerce);
+| each job runs inside its own tenant and checks its own state. Token refresh
+| stays Salla only: WooCommerce keys never expire.
 */
 Schedule::call(function () {
-    foreach (TenantRoute::tenantsFor(TenantRoute::SALLA) as $tenantId) {
+    foreach (TenantRoute::commerceTenants() as $tenantId) {
         ReconcileStore::dispatch($tenantId);
     }
 })->everyTenMinutes()->name('commerce:reconcile')->withoutOverlapping()
-    ->description('Poll Salla for carts and orders whose webhooks were lost');
+    ->description('Poll the store platform for carts and orders whose webhooks were lost');
 
 Schedule::call(function () {
-    foreach (TenantRoute::tenantsFor(TenantRoute::SALLA) as $tenantId) {
+    foreach (TenantRoute::commerceTenants() as $tenantId) {
         SyncCatalog::dispatch($tenantId);
     }
 })->everyTenMinutes()->name('commerce:sync-catalog')->withoutOverlapping()
     ->description('Full product pass so the agent never quotes a price older than 15 minutes');
 
 Schedule::call(function () {
-    foreach (TenantRoute::tenantsFor(TenantRoute::SALLA) as $tenantId) {
+    foreach (TenantRoute::commerceTenants() as $tenantId) {
         ReindexCatalog::dispatch($tenantId);
     }
 })->dailyAt('00:30')->name('knowledge:reindex')->withoutOverlapping()
@@ -64,7 +65,7 @@ Schedule::call(fn () => app(ScheduledActionDispatcher::class)->dispatchDue())
 | (Sunday 06:00 Riyadh, before the weekly merchant call).
 */
 Schedule::call(function () {
-    foreach (TenantRoute::tenantsFor(TenantRoute::SALLA) as $tenantId) {
+    foreach (TenantRoute::commerceTenants() as $tenantId) {
         WeeklyMeasurement::dispatch($tenantId);
     }
 })->weeklyOn(0, '03:00')->name('measurement:weekly')->withoutOverlapping()
@@ -81,7 +82,7 @@ Schedule::call(function () {
         ->whereIn('status', [WebhookStatus::Processed, WebhookStatus::Unhandled, WebhookStatus::Failed])
         ->delete();
 
-    foreach (array_unique([...TenantRoute::tenantsFor(TenantRoute::SALLA), ...TenantRoute::tenantsFor(TenantRoute::META)]) as $tenantId) {
+    foreach (array_unique([...TenantRoute::commerceTenants(), ...TenantRoute::tenantsFor(TenantRoute::META)]) as $tenantId) {
         PurgeExpiredData::dispatch($tenantId);
     }
 })->dailyAt('01:30')->name('compliance:retention')->withoutOverlapping()

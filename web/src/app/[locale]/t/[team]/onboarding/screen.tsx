@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/page-header';
 import { QueryState } from '@/components/query-state';
 import { StatusLine } from '@/components/status-dot';
 import { Section } from '@/components/section';
+import { StoreConnect } from '@/components/store-connect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -132,8 +133,12 @@ export default function OnboardingPage() {
                 </Section>
             )}
 
-            {/* The store status comes from the checklist, which needs recovery:manage; without it, say nothing rather than "not connected" (review L4). */}
-            {checklist && (
+            {/* Integration managers connect the store here; others see the checklist's status (needs recovery:manage), or nothing rather than "not connected" (review L4). */}
+            {can('integrations:manage') ? (
+                <Section title={t.onboarding.store.title}>
+                    <StoreConnect />
+                </Section>
+            ) : checklist && (
                 <Section title={t.onboarding.store.title}>
                     <StatusLine
                         ok={checklist.store_connected}

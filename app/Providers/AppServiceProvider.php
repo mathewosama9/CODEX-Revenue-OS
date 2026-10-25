@@ -6,9 +6,7 @@ use App\Modules\AiGateway\AiGateway;
 use App\Modules\AiGateway\ResponseValidator;
 use App\Modules\Billing\UsageMeter;
 use App\Modules\Commerce\Commerce;
-use App\Modules\Commerce\CommerceAdapter;
 use App\Modules\Commerce\Events\ProductChanged;
-use App\Modules\Commerce\Salla\SallaAdapter;
 use App\Modules\Commerce\Salla\SallaClient;
 use App\Modules\Compliance\AuditLogger;
 use App\Modules\Compliance\Consent\ConsentGate;
@@ -71,9 +69,6 @@ class AppServiceProvider extends ServiceProvider
             (string) config('services.meta.app_id'),
             (string) config('services.meta.app_secret'),
         ));
-
-        // Salla is the only commerce platform until Zid (P4, ADR-011).
-        $this->app->bind(CommerceAdapter::class, SallaAdapter::class);
 
         $this->app->bind(MarginLookup::class, fn () => new MarginLookup(
             (int) config('codex.assumed_default_margin_bps'),

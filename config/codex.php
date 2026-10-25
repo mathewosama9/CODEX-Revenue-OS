@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Commerce\Salla\SallaAdapter;
 use App\Modules\Commerce\Salla\SallaWebhookHandler;
 use App\Modules\Messaging\Meta\MetaWebhookHandler;
 
@@ -115,6 +116,14 @@ return [
     'webhook_handlers' => [
         'salla' => SallaWebhookHandler::class,
         'meta' => MetaWebhookHandler::class,
+        // WooCommerce through the CODEX Connector plugin (docs/integrations/woocommerce-connector.md).
+        'woocommerce' => 'App\\Modules\\Commerce\\WooCommerce\\WooWebhookHandler',
+    ],
+
+    // ADR-011: one adapter per commerce platform, picked by the store's provider (CommerceAdapters).
+    'commerce_adapters' => [
+        'salla' => SallaAdapter::class,
+        'woocommerce' => 'App\\Modules\\Commerce\\WooCommerce\\WooAdapter',
     ],
 
 ];

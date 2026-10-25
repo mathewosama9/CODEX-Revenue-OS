@@ -1,0 +1,130 @@
+# Arabic translation for CODEX Connector.
+msgid ""
+msgstr ""
+"Project-Id-Version: CODEX Connector 1.0.0\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5);\n"
+
+#: codex-connector.php:102
+msgid "CODEX Connector needs WooCommerce to be installed and active."
+msgstr "يحتاج CODEX Connector إلى تثبيت WooCommerce وتفعيله."
+
+#: includes/class-restore.php:74
+msgid "Sorry, the products in this cart are no longer available."
+msgstr "عذرًا، منتجات هذه السلة لم تعد متوفرة."
+
+#: includes/class-settings.php:37
+msgid "Settings"
+msgstr "الإعدادات"
+
+#: includes/class-settings.php:82
+msgid "I agree to receive WhatsApp messages from the store about my order and offers."
+msgstr "أوافق على استلام رسائل واتساب من المتجر عن طلبي والعروض."
+
+#: includes/class-settings.php:108 includes/class-settings.php:109
+#: includes/class-settings.php:256
+msgid "CODEX Connector"
+msgstr "CODEX Connector"
+
+#: includes/class-settings.php:128
+msgid "Connection"
+msgstr "الاتصال"
+
+#: includes/class-settings.php:129
+msgid "API base URL"
+msgstr "رابط الـAPI"
+
+#: includes/class-settings.php:130
+msgid "Store ID"
+msgstr "معرّف المتجر (Store ID)"
+
+#: includes/class-settings.php:131
+msgid "Connector secret"
+msgstr "المفتاح السري (Connector secret)"
+
+#: includes/class-settings.php:133
+msgid "WhatsApp consent at checkout"
+msgstr "الموافقة على واتساب في صفحة الدفع"
+
+#: includes/class-settings.php:134
+msgid "Consent checkbox text"
+msgstr "نص خانة الموافقة"
+
+#: includes/class-settings.php:159
+msgid "The API base URL must start with https://"
+msgstr "يجب أن يبدأ رابط الـAPI بـ https://"
+
+#: includes/class-settings.php:170
+msgid "The Store ID looks wrong. Copy it again from CODEX (it starts with woo_)."
+msgstr "معرّف المتجر غير صحيح. انسخه مرة أخرى من CODEX (يبدأ بـ woo_)."
+
+#: includes/class-settings.php:179
+msgid "The connector secret must be the 64-character code shown in CODEX. The saved secret was kept."
+msgstr "يجب أن يكون المفتاح السري هو الرمز المكوّن من 64 حرفًا الظاهر في CODEX. تم الإبقاء على المفتاح المحفوظ."
+
+#: includes/class-settings.php:198
+msgid "Paste the values shown in CODEX → Onboarding → Connect store → WooCommerce."
+msgstr "الصق القيم الظاهرة في CODEX ← الإعداد ← ربط المتجر ← WooCommerce."
+
+#: includes/class-settings.php:202
+msgid "An unticked checkbox is added to checkout. The cart and phone are sent to CODEX only when the customer ticks it. Have a lawyer review this text before going live."
+msgstr "تُضاف خانة موافقة غير محددة إلى صفحة الدفع. لا تُرسل السلة ورقم الجوال إلى CODEX إلا إذا حددها العميل. اعرض هذا النص على محامٍ قبل التشغيل الفعلي."
+
+#: includes/class-settings.php:227
+msgid "Saved — leave blank to keep it"
+msgstr "محفوظ — اتركه فارغًا للإبقاء عليه"
+
+#: includes/class-settings.php:227
+msgid "Paste the secret from CODEX"
+msgstr "الصق المفتاح السري من CODEX"
+
+#: includes/class-settings.php:233
+msgid "Remove the saved secret"
+msgstr "حذف المفتاح السري المحفوظ"
+
+#: includes/class-settings.php:244
+msgid "Leave blank to use the default text (Arabic on Arabic sites, English on English sites)."
+msgstr "اتركه فارغًا لاستخدام النص الافتراضي (بالعربية في المواقع العربية، وبالإنجليزية في المواقع الإنجليزية)."
+
+#: includes/class-settings.php:250
+msgid "You do not have permission to access this page."
+msgstr "ليست لديك صلاحية للوصول إلى هذه الصفحة."
+
+#: includes/class-settings.php:262
+msgid "Your store currency is not SAR. CODEX only supports stores in Saudi riyals."
+msgstr "عملة متجرك ليست الريال السعودي (SAR). يدعم CODEX المتاجر بالريال السعودي فقط."
+
+#: includes/class-settings.php:274 includes/class-settings.php:287
+msgid "Test connection"
+msgstr "اختبر الاتصال"
+
+#. translators: %s: checkout type (classic or blocks).
+#: includes/class-settings.php:279
+#, php-format
+msgid "Sends a signed test event to CODEX. Detected checkout: %s."
+msgstr "يرسل حدث اختبار موقّعًا إلى CODEX. نوع صفحة الدفع المكتشف: %s."
+
+#: includes/class-settings.php:303
+msgid "Connected to CODEX."
+msgstr "تم الاتصال بـ CODEX."
+
+#: includes/class-settings.php:303
+msgid "Connection failed."
+msgstr "فشل الاتصال."
+
+#. translators: %d: HTTP status code.
+#: includes/class-settings.php:308
+#, php-format
+msgid "HTTP %d"
+msgstr "HTTP %d"
+
+#: includes/class-settings.php:321
+msgid "You do not have permission to do this."
+msgstr "ليست لديك صلاحية للقيام بذلك."
+
+#: includes/class-settings.php:329
+msgid "Save the API base URL, Store ID and secret first."
+msgstr "احفظ رابط الـAPI ومعرّف المتجر والمفتاح السري أولًا."

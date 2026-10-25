@@ -3,8 +3,9 @@
 namespace App\Modules\Commerce\Jobs;
 
 use App\Models\Team;
-use App\Modules\Commerce\CommerceAdapter;
+use App\Modules\Commerce\CommerceAdapters;
 use App\Modules\Commerce\Models\StoreConnection;
+use App\Modules\Commerce\StoreStatus;
 use App\Shared\Tenancy\TenantAware;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -22,15 +23,16 @@ class FetchStoreProfile implements ShouldQueue
 
     public function __construct(public int $tenantId) {}
 
-    public function handle(CommerceAdapter $adapter): void
+    public function handle(CommerceAdapters $adapters): void
     {
-        $store = StoreConnection::query()->first();
+        // The active store: a tenant that moved platforms keeps its old, uninstalled row.
+        $store = StoreConnection::query()->where('status', StoreStatus::Active)->first();
 
         if ($store === null) {
             return;
         }
 
-        $profile = $adapter->storeProfile($store);
+        $profile = $adapters->for($store)->storeProfile($store);
 
         $store->update(['store_name' => $profile['name'], 'owner_email' => $profile['email']]);
 

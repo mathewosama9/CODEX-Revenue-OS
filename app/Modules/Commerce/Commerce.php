@@ -25,7 +25,7 @@ use Throwable;
  */
 class Commerce
 {
-    public function __construct(private readonly CommerceAdapter $adapter) {}
+    public function __construct(private readonly CommerceAdapters $adapters) {}
 
     public function cart(int $cartId): ?CartSnapshot
     {
@@ -58,7 +58,7 @@ class Commerce
         }
 
         try {
-            $live = $this->adapter->abandonedCart($store, $cart->external_id);
+            $live = $this->adapters->for($store)->abandonedCart($store, $cart->external_id);
         } catch (Throwable $exception) {
             Log::warning('Live cart check failed; will retry.', ['cart_id' => $cartId, 'error' => $exception::class]);
 
