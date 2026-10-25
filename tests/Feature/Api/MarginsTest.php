@@ -78,3 +78,15 @@ it('rejects impossible margins', function () {
         ->putJson("/api/v1/teams/{$this->team->slug}/margins", ['default_margin_bps' => 12000])
         ->assertUnprocessable();
 });
+
+it('clears a category margin back to the store default, keeping its history (review H16)', function () {
+    $url = "/api/v1/teams/{$this->team->slug}/margins";
+
+    $this->actingAs($this->owner)->putJson($url, ['default_margin_bps' => 3000, 'categories' => [['external_id' => 'c1', 'margin_bps' => 4500]]])->assertOk();
+    $this->actingAs($this->owner)->putJson($url, ['categories' => [['external_id' => 'c1', 'margin_bps' => null]]])
+        ->assertOk()
+        ->assertJsonPath('data.categories.1.margin_bps', null);
+
+    expect(app(TenantContext::class)->run($this->team->id, fn () => app(MarginLookup::class)->resolve('c1')))->toBe(['bps' => 3000, 'source' => 'store_default'])
+        ->and(DB::table('category_margins')->where('category_external_id', 'c1')->count())->toBe(2);
+});

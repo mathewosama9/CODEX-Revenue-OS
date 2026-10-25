@@ -62,6 +62,7 @@ export type Approval = {
     percent: number;
     reason: string;
     cart_id: number;
+    cart_total_halalas: number | null;
     expires_at: string;
 };
 

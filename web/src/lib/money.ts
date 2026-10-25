@@ -9,7 +9,8 @@ export const CURRENCY_LABEL = { ar: 'ر.س', en: 'SAR' } as const;
 export type Locale = keyof typeof CURRENCY_LABEL;
 
 export function formatSar(halalas: number, locale: Locale = 'ar'): string {
-    const amount = amountFormatter.format(Math.round(halalas / 100));
+    // `|| 0` turns -0 (a range bound under 1 riyal) into 0, never "-0 ر.س" (review L7).
+    const amount = amountFormatter.format(Math.round(halalas / 100) || 0);
 
     return locale === 'ar'
         ? `${amount} ${CURRENCY_LABEL.ar}`

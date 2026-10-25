@@ -33,7 +33,7 @@ class VerificationNotificationTest extends TestCase
 
         $this->actingAs($user)
             ->post(route('verification.send'))
-            ->assertRedirect('/dashboard');
+            ->assertRedirect(config('fortify.home'));
 
         Notification::assertNothingSent();
     }

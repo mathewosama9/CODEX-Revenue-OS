@@ -10,6 +10,8 @@ use App\Shared\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Random\Engine\Mt19937;
+use Random\Randomizer;
 use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
@@ -32,7 +34,10 @@ function inTenant(Closure $callback): mixed
  */
 function seedExperiment(int $treated, int $control, float $treatedRate, float $controlRate, int $seed = 7): void
 {
-    mt_srand($seed);
+    // A private generator: the global mt_rand is reseeded at random whenever an
+    // earlier test's Faker instance is garbage-collected (Faker\Generator::__destruct),
+    // which made this "known truth" random and the test fail about 1 run in 20.
+    $random = new Randomizer(new Mt19937($seed));
     $t = test()->team->id;
     $exposures = $orders = $ledger = [];
     $eligibleAt = CarbonImmutable::parse('2026-11-01 10:00');
@@ -42,7 +47,7 @@ function seedExperiment(int $treated, int $control, float $treatedRate, float $c
             $hash = hash('sha256', "{$arm}-{$i}");
             $exposures[] = ['tenant_id' => $t, 'experiment_id' => test()->experimentId, 'subject_hash' => $hash, 'arm' => $arm, 'cart_id' => count($exposures) + 1, 'cart_total_halalas' => 20000, 'eligible_at' => $eligibleAt];
 
-            if (mt_rand() / mt_getrandmax() < $rate) {
+            if ($random->nextFloat() < $rate) {
                 $orders[] = ['tenant_id' => $t, 'external_id' => "o-{$arm}-{$i}", 'phone_hash' => $hash, 'total_halalas' => 20000, 'placed_at' => $eligibleAt->addDays(2), 'currency' => 'SAR'];
             }
 
@@ -201,4 +206,19 @@ it('lets the owner read the report and not the agent', function () {
     $this->actingAs($owner)->getJson("/api/v1/teams/{$this->team->slug}/reports/profit?from=2026-11-01&to=2026-12-01")
         ->assertOk()->assertJsonPath('data.status', 'ok');
     $this->actingAs($agent)->getJson("/api/v1/teams/{$this->team->slug}/reports/profit")->assertForbidden();
+});
+
+it('cuts periods on Riyadh days, with the "to" day included (review H6)', function () {
+    $owner = User::factory()->create();
+    $this->team->members()->attach($owner, ['role' => TeamRole::Owner->value]);
+    $url = "/api/v1/teams/{$this->team->slug}/reports/profit";
+
+    // 00:30 on 1 November in Riyadh is still 31 October in UTC.
+    DB::table('exposures')->insert(['tenant_id' => $this->team->id, 'experiment_id' => $this->experimentId, 'subject_hash' => hash('sha256', 'late-night'), 'arm' => 'treatment', 'cart_id' => 1, 'cart_total_halalas' => 20000, 'eligible_at' => CarbonImmutable::parse('2026-11-01 00:30', 'Asia/Riyadh')->utc()]);
+
+    $count = fn (string $from, string $to) => array_sum($this->actingAs($owner)->getJson("{$url}?from={$from}&to={$to}")->assertOk()->json('data.sample'));
+
+    expect($count('2026-11-01', '2026-11-01'))->toBe(1)
+        ->and($count('2026-10-31', '2026-10-31'))->toBe(0)
+        ->and($this->actingAs($owner)->getJson("{$url}?from=2026-11-01&to=2026-11-30")->json('data.period'))->toBe(['from' => '2026-11-01', 'to' => '2026-11-30']);
 });

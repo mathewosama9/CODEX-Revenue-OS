@@ -20,11 +20,14 @@ class EnsureTeamMembership
     {
         [$user, $team] = [$request->user(), $this->team($request)];
 
-        abort_if(! $user || ! $team || ! $user->belongsToTeam($team), 403);
+        // Only merchant users are team members; an internal Admin never is.
+        abort_if(! $user instanceof User || ! $team || ! $user->belongsToTeam($team), 403);
 
         $this->ensureTeamMemberHasRequiredRole($user, $team, $minimumRole);
 
-        if ($request->route('current_team') && ! $user->isCurrentTeam($team)) {
+        // The API names the workspace in every URL, so it never needs (or writes)
+        // current_team: two tabs on two stores must not flip it on every poll (review H12).
+        if ($request->route('current_team') && ! $request->is('api/*') && ! $user->isCurrentTeam($team)) {
             $user->switchTeam($team);
         }
 

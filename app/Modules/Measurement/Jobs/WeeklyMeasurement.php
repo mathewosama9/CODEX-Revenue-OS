@@ -4,6 +4,7 @@ namespace App\Modules\Measurement\Jobs;
 
 use App\Modules\Measurement\Models\ProfitReportSnapshot;
 use App\Modules\Measurement\ProfitReport;
+use App\Modules\Measurement\ReportPeriod;
 use App\Modules\Measurement\SampleRatioCheck;
 use App\Shared\Tenancy\TenantAware;
 use Carbon\CarbonImmutable;
@@ -24,14 +25,15 @@ class WeeklyMeasurement implements ShouldQueue
     {
         $srm->run();
 
-        $to = CarbonImmutable::now()->startOfDay();
-        $from = $to->subDays(28);
+        // The 28 whole Riyadh days before today (review H6).
+        $yesterday = CarbonImmutable::now(ReportPeriod::TIMEZONE)->subDay()->toDateString();
+        $period = ReportPeriod::days(CarbonImmutable::parse($yesterday)->subDays(27)->toDateString(), $yesterday);
 
         ProfitReportSnapshot::create([
-            'period_start' => $from,
-            'period_end' => $to,
+            'period_start' => ReportPeriod::firstDay($period->start),
+            'period_end' => ReportPeriod::lastDay($period->end),
             'method_version' => (string) config('codex.measurement.method_version'),
-            'payload' => $report->compute($from, $to),
+            'payload' => $report->compute($period->start, $period->end),
         ]);
     }
 }
