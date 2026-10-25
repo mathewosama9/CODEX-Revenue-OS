@@ -253,6 +253,9 @@ it('never puts a discount in message 1, and asks the owner for an existing custo
 
     $approvalId = DB::table('discount_approvals')->value('id');
     $this->actingAs($this->owner)
+        ->getJson("/api/v1/teams/{$this->team->slug}/recovery/approvals")
+        ->assertJsonPath('data.0.cart_total_halalas', 42_000);
+    $this->actingAs($this->owner)
         ->postJson("/api/v1/teams/{$this->team->slug}/recovery/approvals/{$approvalId}", ['decision' => 'approve'])
         ->assertOk();
 

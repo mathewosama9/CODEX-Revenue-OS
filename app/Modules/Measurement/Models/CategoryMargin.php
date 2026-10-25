@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $id
  * @property int $tenant_id
  * @property string|null $category_external_id
- * @property int $margin_bps
+ * @property int|null $margin_bps null = cleared, the store default applies
  * @property CarbonImmutable $effective_from
  * @property int|null $created_by
  */

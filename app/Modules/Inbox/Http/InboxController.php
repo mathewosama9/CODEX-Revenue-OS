@@ -9,6 +9,7 @@ use App\Modules\Compliance\AuditLogger;
 use App\Modules\Inbox\Models\Conversation;
 use App\Modules\Inbox\Models\ConversationNote;
 use App\Modules\Messaging\Messaging;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -21,17 +22,43 @@ class InboxController
         private readonly AuditLogger $audit,
     ) {}
 
+    private const PAGE_SIZE = 50;
+
+    /**
+     * Newest first, 50 at a time; `meta.next_cursor` fetches the next page
+     * (review L1). Phones are masked in one query for the whole page.
+     */
     public function index(Request $request): JsonResponse
     {
-        $status = $request->query('status', 'open');
+        $validated = $request->validate([
+            'status' => ['nullable', Rule::in(['open', 'pending', 'closed', 'all'])],
+            'cursor' => ['nullable', 'string', 'max:64', 'regex:/^\d+:\d+$/'],
+        ]);
 
-        return response()->json(['data' => Conversation::query()
+        $status = $validated['status'] ?? 'open';
+        $query = Conversation::query()
             ->when($status !== 'all', fn ($query) => $query->where('status', $status))
-            ->latest('last_message_at')
-            ->limit(100)
-            ->get()
-            ->map(fn (Conversation $conversation) => $this->summary($conversation))
-            ->values()]);
+            ->orderByDesc('last_message_at')
+            ->orderByDesc('id');
+
+        if (isset($validated['cursor'])) {
+            [$timestamp, $id] = array_map('intval', explode(':', $validated['cursor']));
+            $at = CarbonImmutable::createFromTimestampUTC($timestamp);
+
+            $query->where(fn ($query) => $query->where('last_message_at', '<', $at)
+                ->orWhere(fn ($query) => $query->where('last_message_at', $at)->where('id', '<', $id)));
+        }
+
+        $page = $query->limit(self::PAGE_SIZE + 1)->get();
+        $more = $page->count() > self::PAGE_SIZE;
+        $page = $page->take(self::PAGE_SIZE);
+        $phones = $this->commerce->maskedPhones($page->pluck('subject_hash')->all());
+        $last = $page->last();
+
+        return response()->json([
+            'data' => $page->map(fn (Conversation $conversation) => $this->summary($conversation, $phones))->values(),
+            'meta' => ['next_cursor' => $more && $last !== null ? $last->last_message_at->getTimestamp().':'.$last->id : null],
+        ]);
     }
 
     public function show(Request $request): JsonResponse
@@ -88,13 +115,14 @@ class InboxController
     }
 
     /**
+     * @param  array<string, string>|null  $phones  pre-loaded masked phones (lists); null looks one up
      * @return array<string, mixed>
      */
-    private function summary(Conversation $conversation): array
+    private function summary(Conversation $conversation, ?array $phones = null): array
     {
         return [
             'id' => $conversation->id,
-            'phone' => $this->commerce->maskedPhone($conversation->subject_hash),
+            'phone' => $phones === null ? $this->commerce->maskedPhone($conversation->subject_hash) : ($phones[$conversation->subject_hash] ?? null),
             'status' => $conversation->status,
             'reason' => $conversation->reason,
             'assigned_user_id' => $conversation->assigned_user_id,

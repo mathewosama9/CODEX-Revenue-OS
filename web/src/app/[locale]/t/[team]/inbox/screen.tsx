@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -11,7 +11,7 @@ import { PageHeader } from '@/components/page-header';
 import { QueryState } from '@/components/query-state';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/i18n';
-import { getData } from '@/lib/api';
+import { api } from '@/lib/api';
 import { useHref, useTeam } from '@/lib/session';
 import { formatRelative } from '@/lib/time';
 import type { ConversationSummary } from '@/lib/types';
@@ -24,9 +24,17 @@ export default function InboxPage() {
     const { path, slug } = useTeam();
     const [status, setStatus] = useState<(typeof FILTERS)[number]>('open');
 
-    const conversations = useQuery({
+    // 50 at a time, newest first; "load more" follows the API cursor (review L1).
+    const conversations = useInfiniteQuery({
         queryKey: [slug, 'inbox', status],
-        queryFn: () => getData<ConversationSummary[]>(path(`/inbox?status=${status}`)),
+        queryFn: ({ pageParam }) =>
+            api<{ data: ConversationSummary[]; meta: { next_cursor: string | null } }>(
+                'GET',
+                `/api/v1${path(`/inbox?status=${status}${pageParam ? `&cursor=${pageParam}` : ''}`)}`,
+            ),
+        initialPageParam: '',
+        getNextPageParam: (page) => page.meta.next_cursor ?? undefined,
+        select: (data) => data.pages.flatMap((page) => page.data),
         refetchInterval: 20_000,
     });
 
@@ -80,6 +88,11 @@ export default function InboxPage() {
                     )
                 }
             </QueryState>
+            {conversations.hasNextPage && (
+                <Button variant="outline" className="self-center" disabled={conversations.isFetchingNextPage} onClick={() => void conversations.fetchNextPage()}>
+                    {t.inbox.loadMore}
+                </Button>
+            )}
         </>
     );
 }
