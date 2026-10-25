@@ -321,6 +321,7 @@ export const en: Dictionary = {
             paused: 'A person has the chat',
             superseded: 'A newer message arrived',
             no_consent: 'No documented customer consent',
+            opted_out: 'The customer stopped messages',
             no_phone: 'Customer number unavailable',
             no_text: 'Message without text',
         },

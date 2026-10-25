@@ -11,6 +11,7 @@ use App\Modules\Commerce\Events\ProductChanged;
 use App\Modules\Commerce\Salla\SallaAdapter;
 use App\Modules\Commerce\Salla\SallaClient;
 use App\Modules\Compliance\AuditLogger;
+use App\Modules\Compliance\Consent\ConsentGate;
 use App\Modules\Compliance\QuietHours;
 use App\Modules\Inbox\Listeners\OpenConversation;
 use App\Modules\Knowledge\CatalogSearch;
@@ -30,6 +31,7 @@ use App\Modules\Recovery\Listeners\RecoveryListeners;
 use App\Modules\SalesAgent\AgentControls;
 use App\Modules\SalesAgent\Eval\GoldenSet;
 use App\Modules\SalesAgent\Listeners\AgentListeners;
+use App\Modules\SalesAgent\ReplyConsent;
 use App\Modules\SalesAgent\Toolbox;
 use App\Shared\Phone\SubjectHasher;
 use App\Shared\Tenancy\TenantContext;
@@ -122,6 +124,11 @@ class AppServiceProvider extends ServiceProvider
             $app->make(AuditLogger::class),
             (int) round((float) config('codex.ai.default_daily_cap_usd') * 1_000_000),
             (int) config('codex.ai.handoff_cart_halalas'),
+        ));
+
+        $this->app->bind(ReplyConsent::class, fn ($app) => new ReplyConsent(
+            $app->make(ConsentGate::class),
+            (bool) config('codex.ai.reply_requires_marketing_consent'),
         ));
 
         $this->app->bind(GoldenSet::class, fn () => new GoldenSet(base_path('evals/golden')));

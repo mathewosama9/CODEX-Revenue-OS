@@ -47,7 +47,7 @@ final class HandoffRules
 
     public function check(string $message, ?int $cartHalalas = null, ?int $cartThresholdHalalas = null): ?HandoffReason
     {
-        $text = ArabicText::normalize(ArabicText::withoutArabicPunctuation($message));
+        $text = ArabicText::normalize($message);
         $tokens = self::tokens($text);
 
         return match (true) {
@@ -66,7 +66,7 @@ final class HandoffRules
      */
     public function mentionsDiscount(string $reply): bool
     {
-        $text = ArabicText::normalize(ArabicText::withoutArabicPunctuation($reply));
+        $text = ArabicText::normalize($reply);
 
         return self::matches($text, self::tokens($text), self::DISCOUNT_OUT);
     }

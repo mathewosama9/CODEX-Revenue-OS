@@ -94,7 +94,7 @@ final class KnowledgeBase implements KnowledgeRetriever
                 'document_id' => $document->id,
                 'position' => $position,
                 'content' => $content,
-                'search_text' => ArabicText::normalize(ArabicText::withoutArabicPunctuation($document->title.' '.$content)),
+                'search_text' => ArabicText::normalize($document->title.' '.$content),
             ]);
         }
 

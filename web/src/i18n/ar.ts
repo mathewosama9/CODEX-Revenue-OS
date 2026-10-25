@@ -321,6 +321,7 @@ export const ar = {
             paused: 'المحادثة مع موظف',
             superseded: 'وصلت رسالة أحدث',
             no_consent: 'لا توجد موافقة موثقة من العميل',
+            opted_out: 'العميل أوقف الرسائل',
             no_phone: 'رقم العميل غير متاح',
             no_text: 'رسالة بدون نص',
         } as Record<string, string>,

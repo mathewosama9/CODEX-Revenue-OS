@@ -43,6 +43,23 @@ class ConsentGate
         return $latest?->status === ConsentStatus::Granted;
     }
 
+    /**
+     * The customer asked to stop (opt-out keyword, template button, import
+     * note): their latest WhatsApp record is a revocation.
+     */
+    public function hasOptedOut(?PhoneNumber $phone, ConsentChannel $channel = ConsentChannel::WhatsApp): bool
+    {
+        if ($phone === null) {
+            return false;
+        }
+
+        return ConsentRecord::query()
+            ->where('subject_hash', $this->subjectHash($phone))
+            ->where('channel', $channel)
+            ->latest('id')
+            ->first()?->status === ConsentStatus::Revoked;
+    }
+
     /** At least one documented grant exists: the merchant's consent source works. */
     public function hasAnyGrant(): bool
     {
