@@ -142,6 +142,7 @@ export async function getData<T>(path: string): Promise<T> {
     return (await api<{ data: T }>('GET', `/api/v1${path}`)).data;
 }
 
+/** A 204 (e.g. a DELETE) has no body: resolves to undefined. */
 export async function sendData<T>(method: Method, path: string, body?: unknown): Promise<T> {
-    return (await api<{ data: T }>(method, `/api/v1${path}`, body)).data;
+    return (await api<{ data: T } | undefined>(method, `/api/v1${path}`, body))?.data as T;
 }

@@ -1,10 +1,11 @@
 'use client';
 
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Hand } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { reasonLabel } from '@/components/ai';
 import { Assignee } from '@/components/inbox';
 import { KillSwitch } from '@/components/kill-switch';
 import { PageHeader } from '@/components/page-header';
@@ -72,9 +73,18 @@ export default function InboxPage() {
                                                 {conversation.phone ?? '—'}
                                             </span>
                                             <span className="text-xs text-muted-foreground">
-                                                {conversation.reason ? (t.inbox.reason[conversation.reason] ?? conversation.reason) : ''}
+                                                {reasonLabel(t, conversation.reason)}
                                                 {' · '}
                                                 <Assignee userId={conversation.assigned_user_id} />
+                                                {conversation.ai_paused && (
+                                                    <>
+                                                        {' · '}
+                                                        <span className="inline-flex items-center gap-1" data-testid="ai-paused">
+                                                            <Hand className="size-3" aria-hidden />
+                                                            {t.ai.pausedShort}
+                                                        </span>
+                                                    </>
+                                                )}
                                             </span>
                                         </span>
                                         <span className="flex items-center gap-2 text-xs text-muted-foreground">

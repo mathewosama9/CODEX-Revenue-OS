@@ -130,12 +130,12 @@ class MessageSender
      *
      * @param  array<string, mixed>  $context
      */
-    public function sendServiceText(PhoneNumber $to, string $text, array $context = []): void
+    public function sendServiceText(PhoneNumber $to, string $text, array $context = []): SendResult
     {
         $number = $this->activeNumber(requireMarketingQuality: false);
 
         if ($number === null) {
-            return;
+            return new SendResult(SendOutcome::NotReady, null, 'no_active_number');
         }
 
         $message = Message::create([
@@ -151,11 +151,18 @@ class MessageSender
         try {
             $response = $this->meta->sendText($number->account->access_token, $number->phone_number_id, $to->e164, $text);
             $wamid = data_get($response->json(), 'messages.0.id');
-            $message->update($response->successful() && is_string($wamid)
+            $accepted = $response->successful() && is_string($wamid);
+            $message->update($accepted
                 ? ['status' => MessageStatus::Accepted, 'wamid' => $wamid, 'sent_at' => now()]
                 : ['status' => MessageStatus::Failed, 'error_code' => (string) data_get($response->json(), 'error.code', $response->status()), 'failed_at' => now()]);
+
+            return $accepted
+                ? new SendResult(SendOutcome::Accepted, $message->id)
+                : new SendResult(SendOutcome::Rejected, $message->id, $message->error_code);
         } catch (Throwable) {
             $message->update(['status' => MessageStatus::Unknown]);
+
+            return new SendResult(SendOutcome::Unknown, $message->id);
         }
     }
 

@@ -21,10 +21,11 @@ test.describe('agent and sign-in', () => {
         await signIn(page, lang, t, 'agent@demo.test');
         await expect(page).toHaveURL(new RegExp(`/${lang}/t/[^/]+/inbox$`));
 
-        // Inbox and their own settings, nothing else.
+        // Inbox, the AI's suggested replies and their own settings, nothing else.
         const nav = page.getByRole('navigation');
-        await expect(nav.getByRole('link')).toHaveCount(2);
+        await expect(nav.getByRole('link')).toHaveCount(3);
         await expect(nav.getByRole('link', { name: t.nav.inbox })).toBeVisible();
+        await expect(nav.getByRole('link', { name: t.nav.drafts })).toBeVisible();
         await expect(nav.getByRole('link', { name: t.nav.settings })).toBeVisible();
 
         // Teammates by name in the conversation.

@@ -8,6 +8,7 @@ use App\Modules\Commerce\Events\StoreDisconnected;
 use App\Modules\Commerce\Jobs\BackfillStore;
 use App\Modules\Commerce\Jobs\ReconcileStore;
 use App\Modules\Commerce\Jobs\RefreshStoreToken;
+use App\Modules\Commerce\Jobs\SyncCatalog;
 use App\Shared\Integrations\TenantRoute;
 use App\Shared\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -288,4 +289,63 @@ it('finishes the whole backfill chain and marks the store reconciled (review H3)
 it('retries reconciliation after a Salla rate limit instead of failing the cycle (review H4)', function () {
     expect((new ReconcileStore(1))->tries)->toBeGreaterThan(1)
         ->and((new ReconcileStore(1))->timeout)->toBeLessThan((int) config('queue.connections.database.retry_after'));
+});
+
+function sallaProduct(string $id, string $name, array $overrides = []): array
+{
+    return $overrides + [
+        'id' => $id,
+        'name' => $name,
+        'price' => ['amount' => 199, 'currency' => 'SAR'],
+        'regular_price' => ['amount' => 199, 'currency' => 'SAR'],
+        'sale_price' => ['amount' => 0, 'currency' => 'SAR'],
+        'status' => 'sale',
+        'quantity' => 5,
+        'description' => '<p>عود كمبودي فاخر</p>',
+        'urls' => ['customer' => "https://store.test/p/{$id}"],
+    ];
+}
+
+it('takes a deleted product out of the search index at once (US-E09-05)', function () {
+    $tenant = installStore();
+
+    sallaWebhook('product.created', sallaProduct('p1', 'عود كمبودي'))->assertOk();
+    expect(asTenant($tenant, fn () => DB::table('product_search_index')->pluck('product_external_id')->all()))->toBe(['p1']);
+
+    sallaWebhook('product.deleted', ['id' => 'p1'])->assertOk();
+
+    expect(asTenant($tenant, fn () => DB::table('product_search_index')->count()))->toBe(0)
+        ->and(DB::table('products')->where('external_id', 'p1')->value('status'))->toBe('deleted');
+});
+
+it('takes a product hidden in Salla out of the index (US-E09-05)', function () {
+    $tenant = installStore();
+    sallaWebhook('product.created', sallaProduct('p1', 'عود كمبودي'))->assertOk();
+
+    sallaWebhook('product.updated', sallaProduct('p1', 'عود كمبودي', ['status' => 'hidden']))->assertOk();
+
+    expect(asTenant($tenant, fn () => DB::table('product_search_index')->count()))->toBe(0);
+});
+
+it('removes products a complete catalog sync no longer sees, and stamps the price time', function () {
+    $tenant = installStore();
+    sallaWebhook('product.created', sallaProduct('gone', 'منتج قديم'))->assertOk();
+    overrideSalla(['api.salla.dev/admin/v2/products*' => ['data' => [sallaProduct('p2', 'مسك أبيض', ['price' => ['amount' => 89]])], 'pagination' => ['totalPages' => 1]]]);
+
+    Bus::dispatchSync(new SyncCatalog($tenant));
+
+    expect(DB::table('products')->where('external_id', 'gone')->value('status'))->toBe('deleted')
+        ->and(DB::table('products')->where('external_id', 'p2')->value('price_halalas'))->toBe(8900)
+        ->and(DB::table('products')->where('external_id', 'p2')->value('synced_at'))->not->toBeNull()
+        ->and(asTenant($tenant, fn () => DB::table('product_search_index')->pluck('product_external_id')->all()))->toBe(['p2']);
+});
+
+it('deletes nothing when the catalog sync is cut short by a rate limit', function () {
+    $tenant = installStore();
+    sallaWebhook('product.created', sallaProduct('kept', 'منتج'))->assertOk();
+    overrideSalla(['api.salla.dev/admin/v2/products*' => [['error' => 'rate'], 429]]);
+
+    asTenant($tenant, fn () => app()->call([new SyncCatalog($tenant), 'handle']));
+
+    expect(DB::table('products')->where('external_id', 'kept')->value('status'))->toBe('sale');
 });

@@ -1,0 +1,22 @@
+# Discount, complaint, asking for a person, big carts: code hands off before
+# any model call (US-E11-03/04). No `offline` script: a model call fails the case.
+- {id: sa-discount-001, category: discount, say: فيه خصم على العود؟, expect: {outcome: handoff, reason: discount_request}}
+- {id: sa-discount-002, category: discount, say: عندكم كود خصم؟, expect: {outcome: handoff, reason: discount_request}}
+- {id: sa-discount-003, category: discount, say: ابي تخفيض لو سمحت, expect: {outcome: handoff, reason: discount_request}}
+- {id: sa-discount-004, category: discount, say: وش آخر سعر للعود؟, expect: {outcome: handoff, reason: discount_request}}
+- {id: sa-discount-005, category: discount, say: لو أخذت ثنتين تنزل لي السعر؟, expect: {outcome: handoff, reason: discount_request}}
+- {id: sa-discount-006, category: discount, say: ممكن كوبون للطلب الأول؟, expect: {outcome: handoff, reason: discount_request}}
+- {id: sa-discount-007, category: discount, say: عندكم عروض هالأسبوع؟, expect: {outcome: handoff, reason: discount_request}}
+- {id: sa-discount-008, category: discount, say: any discount for loyal customers?, expect: {outcome: handoff, reason: discount_request}}
+- {id: sa-discount-009, category: discount, say: والخصم كم يصير؟, expect: {outcome: handoff, reason: discount_request}}
+- {id: sa-discount-010, category: discount, say: ودي اتفاوض على السعر, expect: {outcome: handoff, reason: discount_request}}
+- {id: sa-complaint-001, category: complaint, say: طلبي ما وصل لليوم, expect: {outcome: handoff, reason: complaint}}
+- {id: sa-complaint-002, category: complaint, say: العطر وصلني مكسور, expect: {outcome: handoff, reason: complaint}}
+- {id: sa-complaint-003, category: complaint, say: عندي شكوى على آخر طلب, expect: {outcome: handoff, reason: complaint}}
+- {id: sa-complaint-004, category: complaint, say: الطلب متأخر أسبوع, expect: {outcome: handoff, reason: complaint}}
+- {id: sa-complaint-005, category: complaint, say: وصلني غلط مو اللي طلبته, expect: {outcome: handoff, reason: complaint}}
+- {id: sa-human-001, category: human, say: ابي اكلم موظف, expect: {outcome: handoff, reason: asked_human}}
+- {id: sa-human-002, category: human, say: كلمني أحد لو سمحت, expect: {outcome: handoff, reason: asked_human}}
+- {id: sa-human-003, category: human, say: I want to talk to a real person, expect: {outcome: handoff, reason: asked_human}}
+- {id: sa-human-004, category: human, say: ابغى خدمة العملاء, expect: {outcome: handoff, reason: asked_human}}
+- {id: sa-human-005, category: human, say: متى يوصل الطلب؟, cart_sar: 2000, cart_items: [chanel], expect: {outcome: handoff, reason: high_cart_value}}

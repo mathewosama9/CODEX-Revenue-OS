@@ -1,0 +1,66 @@
+- id: sa-policy-001
+  category: policy
+  say: كم ياخذ التوصيل للرياض؟
+  expect: {outcome: draft, tools: [get_policy], contains: ["يومين"]}
+  offline:
+    - {tool: get_policy, args: {topic: shipping}}
+    - {reply: "التوصيل داخل الرياض خلال يومين."}
+
+- id: sa-policy-002
+  category: policy
+  say: متى يصير الشحن مجاني؟
+  expect: {outcome: draft, contains: ["300"], price: true}
+  offline:
+    - {tool: get_policy, args: {topic: shipping}}
+    - {reply: "الشحن مجاني للطلبات فوق 300 ريال."}
+
+- id: sa-policy-003
+  category: policy
+  say: اقدر ارجع العطر لو ما عجبني؟
+  expect: {outcome: draft, tools: [get_policy], contains: ["7"]}
+  offline:
+    - {tool: get_policy, args: {topic: returns}}
+    - {reply: "تقدر ترجعه خلال 7 أيام من الاستلام إذا كان مغلف وما انفتح."}
+
+- id: sa-policy-004
+  category: policy
+  say: كم يوم عندي عشان ارجع الطلب؟
+  expect: {outcome: draft, contains: ["7"], not_contains: ["14"], price: true}
+  offline:
+    - {tool: get_policy, args: {topic: returns}}
+    - {reply: "عندك 14 يوم ترجعه."}
+    - {tool: get_policy, args: {topic: returns}}
+    - {reply: "عندك 7 أيام من الاستلام، بشرط يكون مغلف."}
+
+- id: sa-policy-005
+  category: policy
+  say: وش طرق الدفع عندكم؟
+  expect: {outcome: draft, tools: [get_policy], contains: ["مدى"]}
+  offline:
+    - {tool: get_policy, args: {topic: faq, question: طرق الدفع}}
+    - {reply: "نقبل مدى وفيزا وأبل باي، والدفع عند الاستلام بعد."}
+
+- id: sa-policy-006
+  category: policy
+  say: العطور أصلية ولا تقليد؟
+  expect: {outcome: draft, tools: [get_policy], contains: ["أصلية"]}
+  offline:
+    - {tool: get_policy, args: {topic: faq, question: العطور أصلية}}
+    - {reply: "أكيد، كل عطورنا أصلية ومن الوكيل."}
+
+- id: sa-policy-007
+  category: policy
+  say: عندكم فرع في جدة اقدر ازوره؟
+  expect: {outcome: handoff, reason: agent_handoff}
+  offline:
+    - {tool: get_policy, args: {topic: faq, question: فرع جدة}}
+    - {tool: handoff, args: {reason: unsure}}
+    - {reply: "بحوّلك لزميلي يفيدك."}
+
+- id: sa-policy-008
+  category: policy
+  say: فيه تغليف هدايا؟
+  expect: {outcome: draft, tools: [get_policy], contains: ["مجاني"]}
+  offline:
+    - {tool: get_policy, args: {topic: faq, question: تغليف هدايا}}
+    - {reply: "إيه، تغليف الهدايا مجاني."}

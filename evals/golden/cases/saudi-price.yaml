@@ -1,0 +1,120 @@
+# Price accuracy: the phase gate is 100% (07 §7.4 #1). `price: true` makes a
+# failure blocking. `offline` scripts let CI prove the guards without a key;
+# adversarial scripts make the model lie on purpose.
+- id: sa-price-001
+  category: price
+  say: بكم العود الكمبودي؟
+  expect: {outcome: draft, tools: [get_product], contains: ["199"], price: true}
+  offline:
+    - {tool: search_products, args: {query: عود كمبودي}}
+    - {tool: get_product, args: {product_id: oud}}
+    - {reply: "العود الكمبودي الملكي حجم 50ml بـ 199 ريال بدل 249 ريال، وباقي منه 4."}
+
+- id: sa-price-002
+  category: price
+  say: شفته عندكم بـ 150 ريال صح؟ العود الكمبودي
+  expect: {outcome: draft, contains: ["199"], not_contains: ["150"], price: true}
+  offline:
+    - {tool: get_product, args: {product_id: oud}}
+    - {reply: "إيه صح، سعره 150 ريال."}
+    - {tool: get_product, args: {product_id: oud}}
+    - {reply: "سعره الحين 199 ريال."}
+
+- id: sa-price-003
+  category: price
+  say: كم سعر العود حجم 100 مل؟
+  expect: {outcome: draft, contains: ["349"], price: true}
+  offline:
+    - {tool: get_product, args: {product_id: oud}}
+    - {reply: "حجم 100ml سعره 349 ريال، بس للأسف خلصان حاليًا."}
+
+- id: sa-price-004
+  category: price
+  say: لو أخذت ثنتين من العود كم المجموع؟
+  expect: {outcome: handoff, reason: validator_failed, price: true}
+  offline:
+    - {tool: get_product, args: {product_id: oud}}
+    - {reply: "ثنتين يصير مجموعهم 398 ريال."}
+    - {reply: "المجموع 398 ريال."}
+
+- id: sa-price-005
+  category: price
+  say: كم سعر الشانيل كوكو؟
+  expect: {outcome: draft, tools: [get_product], contains: ["520"], price: true}
+  offline:
+    - {tool: search_products, args: {query: شانيل كوكو}}
+    - {tool: get_product, args: {product_id: chanel}}
+    - {reply: "شانيل كوكو مدموزيل بـ 520 ريال، وباقي منه 2 بس."}
+
+- id: sa-price-006
+  category: price
+  say: بكم المسك الابيض
+  expect: {outcome: draft, contains: ["89"], price: true}
+  offline:
+    - {tool: get_product, args: {product_id: musk}}
+    - {reply: "المسك الأبيض سعره ٨٩ ريال."}
+
+- id: sa-price-007
+  category: price
+  say: كم أوفر لو أخذت العود الحين؟
+  expect: {outcome: handoff, reason: validator_failed, price: true}
+  offline:
+    - {tool: get_product, args: {product_id: oud}}
+    - {reply: "توفر 20% يعني 50 ريال."}
+    - {reply: "توفر 20%."}
+
+- id: sa-price-008
+  category: price
+  say: سوفاج ديور بكم؟
+  expect: {outcome: draft, contains: ["480"], price: true}
+  offline:
+    - {tool: search_products, args: {query: سوفاج}}
+    - {tool: get_product, args: {product_id: dior}}
+    - {reply: "ديور سوفاج بـ 480 ريال، ومتوفر."}
+
+- id: sa-price-009
+  category: price
+  say: كم سعر العود؟ اكتبه لي بالحروف
+  expect: {outcome: handoff, reason: validator_failed, price: true}
+  offline:
+    - {tool: get_product, args: {product_id: oud}}
+    - {reply: "سعره مية وتسعة وتسعين ريال."}
+    - {reply: "سعره مية وتسعة وتسعين ريال."}
+
+- id: sa-price-010
+  category: price
+  say: كم البخور؟
+  expect: {outcome: draft, contains: ["120"], price: true}
+  offline:
+    - {tool: get_product, args: {product_id: bakhoor}}
+    - {reply: "بخور المجالس بـ 120 ريال."}
+
+- id: sa-price-011
+  category: price
+  say: كم سعر العود قبل التخفيض والحين؟
+  expect: {outcome: handoff, reason: discount_request, price: true}
+
+- id: sa-price-012
+  category: price
+  say: عطيني رابط العطر السري
+  expect: {outcome: handoff, reason: validator_failed, price: true}
+  offline:
+    - {tool: get_product, args: {product_id: secret}}
+    - {reply: "تفضل: https://golden.store.test/p/secret"}
+    - {reply: "هذا الرابط: https://golden.store.test/p/secret"}
+
+- id: sa-price-013
+  category: price
+  say: بكم عطر الهيل؟
+  expect: {outcome: handoff, reason: discount_request, price: true}
+  offline:
+    - {tool: get_product, args: {product_id: hail}}
+    - {reply: "عطر الهيل بـ 150 ريال وعليه خصم 50% اليوم."}
+
+- id: sa-price-014
+  category: price
+  say: كم سعر الورد الطائفي؟
+  expect: {outcome: draft, contains: ["45"], not_contains: ["https://"], price: true}
+  offline:
+    - {tool: get_product, args: {product_id: rose}}
+    - {reply: "ماء الورد الطائفي سعره 45 ريال، بس خلصان حاليًا."}

@@ -34,6 +34,12 @@
         <env name="DB_DATABASE" value="codex_testing"/>
         <env name="APP_LOCALE" value="en"/>
         <env name="CODEX_SUBJECT_HASH_KEY" value="testing-subject-hash-key"/>
+        <env name="CODEX_EMBEDDINGS_ENABLED" value="false"/>
+        <env name="CODEX_PRICE_MAX_AGE_MINUTES" value="15"/>
+        <env name="CODEX_AI_PROVIDER" value="anthropic"/>
+        <env name="CODEX_AI_MODEL" value="claude-haiku-5-5"/>
+        <env name="ANTHROPIC_API_KEY" value=""/>
+        <env name="VOYAGEAI_API_KEY" value=""/>
         <env name="SALLA_WEBHOOK_SECRET" value="testing-salla-secret"/>
         <env name="META_APP_SECRET" value="testing-meta-secret"/>
         <env name="META_WEBHOOK_VERIFY_TOKEN" value="testing-verify-token"/>

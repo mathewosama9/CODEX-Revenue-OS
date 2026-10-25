@@ -3,7 +3,9 @@
 use App\Models\TeamInvitation;
 use App\Modules\Commerce\Jobs\ReconcileStore;
 use App\Modules\Commerce\Jobs\RefreshStoreToken;
+use App\Modules\Commerce\Jobs\SyncCatalog;
 use App\Modules\Compliance\Jobs\PurgeExpiredData;
+use App\Modules\Knowledge\Jobs\ReindexCatalog;
 use App\Modules\Measurement\Jobs\WeeklyMeasurement;
 use App\Modules\Recovery\ScheduledActionDispatcher;
 use App\Shared\Integrations\TenantRoute;
@@ -28,6 +30,20 @@ Schedule::call(function () {
     }
 })->everyTenMinutes()->name('commerce:reconcile')->withoutOverlapping()
     ->description('Poll Salla for carts and orders whose webhooks were lost');
+
+Schedule::call(function () {
+    foreach (TenantRoute::tenantsFor(TenantRoute::SALLA) as $tenantId) {
+        SyncCatalog::dispatch($tenantId);
+    }
+})->everyTenMinutes()->name('commerce:sync-catalog')->withoutOverlapping()
+    ->description('Full product pass so the agent never quotes a price older than 15 minutes');
+
+Schedule::call(function () {
+    foreach (TenantRoute::tenantsFor(TenantRoute::SALLA) as $tenantId) {
+        ReindexCatalog::dispatch($tenantId);
+    }
+})->dailyAt('00:30')->name('knowledge:reindex')->withoutOverlapping()
+    ->description('Nightly safety net for the product search index (09 §9.12)');
 
 Schedule::call(function () {
     foreach (TenantRoute::tenantsFor(TenantRoute::SALLA) as $tenantId) {

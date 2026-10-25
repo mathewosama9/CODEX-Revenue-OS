@@ -12,6 +12,7 @@ use App\Modules\Commerce\Events\CartPurchased;
 use App\Modules\Commerce\Events\OrderCancelled;
 use App\Modules\Commerce\Events\OrderPlaced;
 use App\Modules\Commerce\Events\OrderRefunded;
+use App\Modules\Commerce\Events\ProductChanged;
 use App\Modules\Commerce\Models\Cart;
 use App\Modules\Commerce\Models\Customer;
 use App\Modules\Commerce\Models\Order;
@@ -162,9 +163,28 @@ class CommerceRecorder
             'sku' => $data->sku,
             'category_external_id' => $data->categoryExternalId,
             'price_halalas' => $data->priceHalalas,
+            'regular_price_halalas' => $data->regularPriceHalalas,
             'quantity' => $data->quantity,
             'status' => $data->status,
+            'description' => $data->description,
+            'url' => $data->url,
+            'is_available' => $data->isAvailable,
+            'unlimited_quantity' => $data->unlimitedQuantity,
+            'variants' => array_map(fn ($variant) => $variant->toArray(), $data->variants),
+            'synced_at' => now(),
         ]);
+
+        ProductChanged::dispatch($this->tenants->require(), $data->externalId);
+    }
+
+    /** `product.deleted`, or gone from a full catalog sync. */
+    public function removeProduct(string $externalId): void
+    {
+        $updated = Product::query()->where('external_id', $externalId)->update(['status' => 'deleted', 'synced_at' => now()]);
+
+        if ($updated > 0) {
+            ProductChanged::dispatch($this->tenants->require(), $externalId);
+        }
     }
 
     private function customer(?CustomerData $data): ?Customer
