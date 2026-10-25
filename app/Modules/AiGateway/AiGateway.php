@@ -29,7 +29,7 @@ class AiGateway
 {
     /**
      * @param  array<string, array{input: float, output: float, cache_read: float, cache_write: float}>  $pricing
-     * @param  array{provider: string, model: string, dimensions: int, usd_per_mtok: float}  $embeddings
+     * @param  array{enabled: bool, provider: string, model: string, dimensions: int, usd_per_mtok: float}  $embeddings
      */
     public function __construct(
         private readonly CostLedger $ledger,
@@ -101,6 +101,10 @@ class AiGateway
     {
         if ($texts === []) {
             return [];
+        }
+
+        if (! $this->embeddings['enabled']) {
+            return null;
         }
 
         $request = new AiRequest($purpose, '', [], [], 0);

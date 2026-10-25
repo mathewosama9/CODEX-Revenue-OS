@@ -77,7 +77,9 @@ class SallaWebhookHandler implements WebhookHandler
 
             str_starts_with($type, 'order.') && ! in_array($type, ['order.deleted'], true) => $this->recorder->recordOrder($this->mapper->order($data)),
 
-            str_starts_with($type, 'product.') && $type !== 'product.deleted' => $this->recorder->recordProduct($this->mapper->product($data)),
+            $type === 'product.deleted' => $this->recorder->removeProduct((string) Arr::get($data, 'id')),
+
+            str_starts_with($type, 'product.') => $this->recorder->recordProduct($this->mapper->product($data)),
 
             default => null,
         };
