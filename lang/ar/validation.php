@@ -191,5 +191,9 @@ return [
         'margin_floor_bps' => 'أقل هامش مسموح',
         'monthly_discount_budget_halalas' => 'ميزانية الخصم الشهرية',
         'approval_window_minutes' => 'مهلة الموافقة',
+        'file' => 'الملف',
+        'consent_text' => 'نص الموافقة',
+        'collected_via' => 'مكان جمع الموافقة',
+        'attested' => 'التأكيد',
     ],
 ];

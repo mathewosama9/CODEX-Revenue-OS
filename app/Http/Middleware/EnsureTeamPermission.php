@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Enums\TeamPermission;
 use App\Models\Team;
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -33,8 +34,9 @@ class EnsureTeamPermission
 
         $user = $request->user();
 
+        // Only merchant users hold team permissions; an internal Admin never does.
         abort_unless(
-            $user !== null
+            $user instanceof User
             && $team instanceof Team
             && $user->hasTeamPermission($team, TeamPermission::from($permission)),
             403,

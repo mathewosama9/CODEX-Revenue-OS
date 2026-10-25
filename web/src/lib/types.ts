@@ -132,3 +132,14 @@ export type Members = {
     members: { id: number; name: string; role: 'owner' | 'agent'; email?: string }[];
     invitations: { id: number; email: string; role: 'owner' | 'agent'; expires_at: string | null }[];
 };
+
+export type ConsentImportSummary = {
+    id: number;
+    rows_total: number;
+    granted: number;
+    already_granted: number;
+    skipped_opted_out: number;
+    skipped_invalid: number;
+    collected_via?: string;
+    created_at?: string;
+};
