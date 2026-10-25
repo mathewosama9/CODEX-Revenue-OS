@@ -48,7 +48,8 @@ class ProfitReport
         $now = CarbonImmutable::now();
 
         $base = [
-            'period' => ['from' => $from->toDateString(), 'to' => $to->toDateString()],
+            // Merchant days, "to" inclusive (the query end is exclusive).
+            'period' => ['from' => ReportPeriod::firstDay($from), 'to' => ReportPeriod::lastDay($to)],
             'method_version' => $this->methodVersion,
             'outcome_window_days' => $this->windowDays,
             'holdout_bps' => $experiment->holdout_bps,

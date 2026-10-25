@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonImmutable $run_at
  * @property string $idempotency_key
  * @property int $attempts
+ * @property int $reclaims lost runs picked up again (H1)
  * @property string|null $last_error
  * @property CarbonImmutable|null $claimed_at
  * @property array<string, mixed> $result
