@@ -54,12 +54,11 @@
 
 **P2 الواجهة (Next.js) — ✅ خلصت** على branch `feat/P2-web` (2026-10-25)، في فولدر `web/` ([ADR-002](docs/adr/ADR-002-frontend-nextjs.md)). الـ8 شاشات: الدخول (+2FA ونسيت كلمة المرور)، الإعداد، إعدادات الاسترجاع، موافقات الخصم، تقرير الربح، المحادثات، الاستهلاك، طلبات البيانات. عربي RTL وإنجليزي LTR، وNavy وLight. `composer ci:check` أخضر، و**10 اختبارات E2E** (Playwright على الـAPI الحقيقي). دليل الاختبار: [docs/phases/P2-frontend/testing-guide.md](docs/phases/P2-frontend/testing-guide.md).
 
-الناقص: شاشات الإعدادات (البروفايل، كلمة المرور، تفعيل 2FA، دعوة موظف) ومسح Inertia، ودول مستنيين موافقتك على تعديلات backend صغيرة (§7).
+**مراجعة P1 وP2 — ✅ اتقفلت** (4 sessions، كل البنود في [قائمة المشاكل](docs/reviews/2026-10-25-p1-p2-issues.md)). اتعمل فيها: شاشة الإعدادات، وموافقات العملاء (CSV)، والصدق في القياس والفلوس، وربط واتساب والـsession، والتشغيل. وInertia اتمسح، وLaravel بقى API بس. الحالة: 248 test أخضر و20 اختبار E2E. **جاهزين لـP3 (الـAI Sales Agent).**
 
 ## 7. قرارات مستنية المؤسس
 - **المستشار القانوني:** نص تأكيد التاجر في استيراد موافقات العملاء، وهل الـCSV كفاية كدليل (التفاصيل في [قائمة المشاكل](docs/reviews/2026-10-25-p1-p2-issues.md)).
-- مراجعة P1 وP2 ودمج الـbranches في `main`.
-- 4 تعديلات backend صغيرة للواجهة (التفاصيل في [دليل P2](docs/phases/P2-frontend/testing-guide.md) §7): لينك reset password يروح لـNext.js، وAPI للإعدادات (وبعدها نمسح Inertia)، وقائمة أعضاء الفريق للـinbox، ورسائل الأخطاء بالعربي.
+- دمج `fix/operations-cleanup` (Session 4) في `main`.
 - بيانات Meta للواجهة: `NEXT_PUBLIC_META_APP_ID` و`NEXT_PUBLIC_META_CONFIG_ID` (Facebook Login for Business) عشان زرار ربط واتساب يشتغل.
 - بيانات Salla Partners وMeta (في `.env`) عشان الـspikes الحية.
 - ADR-006: منطقة تخزين واتساب (AE ولا BH)، **ومينفعش تتغير بعدين**.
