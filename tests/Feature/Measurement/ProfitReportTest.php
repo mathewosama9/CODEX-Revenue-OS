@@ -10,6 +10,8 @@ use App\Shared\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Random\Engine\Mt19937;
+use Random\Randomizer;
 use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
@@ -32,7 +34,10 @@ function inTenant(Closure $callback): mixed
  */
 function seedExperiment(int $treated, int $control, float $treatedRate, float $controlRate, int $seed = 7): void
 {
-    mt_srand($seed);
+    // A private generator: the global mt_rand is reseeded at random whenever an
+    // earlier test's Faker instance is garbage-collected (Faker\Generator::__destruct),
+    // which made this "known truth" random and the test fail about 1 run in 20.
+    $random = new Randomizer(new Mt19937($seed));
     $t = test()->team->id;
     $exposures = $orders = $ledger = [];
     $eligibleAt = CarbonImmutable::parse('2026-11-01 10:00');
@@ -42,7 +47,7 @@ function seedExperiment(int $treated, int $control, float $treatedRate, float $c
             $hash = hash('sha256', "{$arm}-{$i}");
             $exposures[] = ['tenant_id' => $t, 'experiment_id' => test()->experimentId, 'subject_hash' => $hash, 'arm' => $arm, 'cart_id' => count($exposures) + 1, 'cart_total_halalas' => 20000, 'eligible_at' => $eligibleAt];
 
-            if (mt_rand() / mt_getrandmax() < $rate) {
+            if ($random->nextFloat() < $rate) {
                 $orders[] = ['tenant_id' => $t, 'external_id' => "o-{$arm}-{$i}", 'phone_hash' => $hash, 'total_halalas' => 20000, 'placed_at' => $eligibleAt->addDays(2), 'currency' => 'SAR'];
             }
 
