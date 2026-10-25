@@ -33,7 +33,13 @@ export default function ApprovalsPage() {
         onMutate: () => setNotice(null),
         onSuccess: (data) => client.setQueryData(key, data),
         onError: (error) => {
-            setNotice(error instanceof ApiError && error.status === 410 ? t.approvals.expired : t.common.error);
+            setNotice(
+                error instanceof ApiError && error.status === 410
+                    ? t.approvals.expired
+                    : error instanceof ApiError && error.status === 409
+                      ? t.approvals.moot
+                      : t.common.error,
+            );
             void client.invalidateQueries({ queryKey: key });
         },
     });

@@ -60,6 +60,10 @@ beforeEach(function () {
             return Http::response(['messages' => [['id' => 'wamid.'.count($this->sent)]]]);
         }
 
+        if (($this->sallaStatus ?? null) !== null) {
+            return Http::response(['error' => 'unavailable'], $this->sallaStatus);
+        }
+
         // Salla live check: the cart is still abandoned unless a test says otherwise.
         return Http::response(['data' => ['id' => 555, 'status' => $this->cartStatus ?? 'abandoned']]);
     });
@@ -226,7 +230,7 @@ it('claims each due step once, even with two schedulers', function () {
 });
 
 it('never puts a discount in message 1, and asks the owner for an existing customer', function () {
-    DB::table('recovery_settings')->update(['discount_enabled' => true, 'discount_percent' => 10, 'discount_code' => 'BACK10', 'discount_cap_percent' => 10]);
+    DB::table('recovery_settings')->update(['discount_enabled' => true, 'discount_percent' => 10, 'discount_code' => 'BACK10', 'discount_cap_percent' => 10, 'monthly_discount_budget_halalas' => 100_000]);
     tenant(fn () => app(CommerceRecorder::class)->recordOrder(new OrderData(
         externalId: 'old', customer: new CustomerData('c-555', $this->phone), totalHalalas: 10000, discountHalalas: 0,
         shippingHalalas: 0, currency: 'SAR', status: 'delivered', paymentMethod: 'card', couponCode: null,
@@ -260,7 +264,7 @@ it('never puts a discount in message 1, and asks the owner for an existing custo
 });
 
 it('sends without a discount when the approval expires', function () {
-    DB::table('recovery_settings')->update(['discount_enabled' => true, 'discount_percent' => 20, 'discount_code' => 'BIG20', 'discount_cap_percent' => 10, 'approval_window_minutes' => 60]);
+    DB::table('recovery_settings')->update(['discount_enabled' => true, 'discount_percent' => 20, 'discount_code' => 'BIG20', 'discount_cap_percent' => 10, 'approval_window_minutes' => 60, 'monthly_discount_budget_halalas' => 100_000]);
 
     abandonCart();
     $this->travel(61)->minutes();
@@ -278,7 +282,7 @@ it('sends without a discount when the approval expires', function () {
 });
 
 it('refuses a discount that breaks the margin floor', function () {
-    DB::table('recovery_settings')->update(['discount_enabled' => true, 'discount_percent' => 35, 'discount_code' => 'X35', 'discount_cap_percent' => 50, 'margin_floor_bps' => 1000]);
+    DB::table('recovery_settings')->update(['discount_enabled' => true, 'discount_percent' => 35, 'discount_code' => 'X35', 'discount_cap_percent' => 50, 'margin_floor_bps' => 1000, 'monthly_discount_budget_halalas' => 100_000]);
 
     abandonCart();
     $this->travel(61)->minutes();
@@ -327,4 +331,123 @@ it('pauses with the kill switch and keeps the cancelled steps', function () {
 
     expect(DB::table('scheduled_actions')->value('status'))->toBe('cancelled')
         ->and(DB::table('scheduled_actions')->count())->toBe(1);
+});
+
+// --- P1/P2 review fixes (docs/reviews/2026-10-25-p1-p2-issues.md) ---
+
+it('really sends the retry after a per-user limit error (B2)', function () {
+    $this->metaError = 131049;
+
+    abandonCart();
+    $this->travel(61)->minutes();
+    runDue();
+
+    expect($this->sent)->toBe([]);
+
+    $this->metaError = null;
+    $this->travel(25)->hours();
+    runDue();
+
+    expect($this->sent)->toHaveCount(1)
+        ->and($this->sent[0]['template']['name'])->toBe('r1')
+        ->and(DB::table('messages')->where('status', 'accepted')->count())->toBe(1)
+        ->and(DB::table('scheduled_actions')->where('step', 1)->value('status'))->toBe('done');
+});
+
+it('caps treated customers whose sequence ended, like the control arm (B3)', function () {
+    abandonCart(id: '1');
+    $this->cartStatus = 'purchased';
+    $this->travel(61)->minutes();
+    runDue();
+
+    expect(DB::table('recovery_sequences')->value('status'))->toBe('cancelled');
+
+    $this->cartStatus = 'abandoned';
+    abandonCart(id: '2');
+
+    expect(DB::table('recovery_sequences')->where('reason', 'frequency_cap')->count())->toBe(1);
+});
+
+it('retries when Salla is unreachable instead of calling it a purchase (B4)', function () {
+    abandonCart();
+    $this->sallaStatus = 429;
+    $this->travel(61)->minutes();
+    runDue();
+
+    $action = DB::table('scheduled_actions')->first();
+
+    expect($this->sent)->toBe([])
+        ->and($action->status)->toBe('pending')
+        ->and($action->last_error)->toBe('cart_check_failed')
+        ->and(DB::table('recovery_sequences')->value('status'))->toBe('active')
+        ->and(DB::table('carts')->value('status'))->toBe('abandoned');
+
+    $this->sallaStatus = null;
+    $this->travel(16)->minutes();
+    runDue();
+
+    expect($this->sent)->toHaveCount(1);
+});
+
+it('treats the monthly discount budget as a hard cap, reserved at send time (B5)', function () {
+    // 10% of a 420 SAR cart = 42 SAR; a 50 SAR budget covers one such discount, not two.
+    DB::table('recovery_settings')->update(['discount_enabled' => true, 'discount_percent' => 10, 'discount_code' => 'BACK10', 'discount_cap_percent' => 10, 'monthly_discount_budget_halalas' => 5_000]);
+    $second = PhoneNumber::tryParse('0598765432');
+    tenant(fn () => app(ConsentGate::class)->grant($second, ConsentSource::CheckoutOptIn, ['text_version' => 'v1']));
+
+    abandonCart(id: '1');
+    abandonCart(id: '2', phone: $second);
+    $this->travel(61)->minutes();
+    runDue();
+    $this->travel(24)->hours();
+    runDue();
+
+    $step2 = collect($this->sent)->slice(2)->pluck('template.name')->sort()->values()->all();
+
+    expect($step2)->toBe(['r2', 'r2d'])
+        ->and(DB::table('scheduled_actions')->where('step', 2)->get()->sum(fn ($action) => json_decode($action->result, true)['discount_reserved_halalas'] ?? 0))->toBe(4_200);
+});
+
+it('sends no discount at all without a budget (B5)', function () {
+    DB::table('recovery_settings')->update(['discount_enabled' => true, 'discount_percent' => 10, 'discount_code' => 'BACK10', 'discount_cap_percent' => 10, 'monthly_discount_budget_halalas' => 0]);
+
+    abandonCart();
+    $this->travel(61)->minutes();
+    runDue();
+    $this->travel(24)->hours();
+    runDue();
+
+    expect($this->sent[1]['template']['name'])->toBe('r2');
+});
+
+it('refuses a discount that is on but cannot go out (B6)', function () {
+    $this->actingAs($this->owner)
+        ->putJson("/api/v1/teams/{$this->team->slug}/recovery", ['discount_enabled' => true, 'discount_percent' => 10, 'discount_code' => null])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['discount_code', 'monthly_discount_budget_halalas']);
+
+    $this->actingAs($this->owner)
+        ->putJson("/api/v1/teams/{$this->team->slug}/recovery", ['discount_enabled' => true, 'discount_percent' => 10, 'discount_code' => 'BACK10', 'monthly_discount_budget_halalas' => 100_000])
+        ->assertOk();
+});
+
+it('hides and refuses approvals whose cart no longer needs one (H11)', function () {
+    DB::table('recovery_settings')->update(['discount_enabled' => true, 'discount_percent' => 20, 'discount_code' => 'BIG20', 'discount_cap_percent' => 10, 'monthly_discount_budget_halalas' => 100_000]);
+
+    abandonCart();
+    $this->travel(61)->minutes();
+    runDue();
+    $this->travel(24)->hours();
+    runDue();
+
+    $approvalId = DB::table('discount_approvals')->value('id');
+    $base = "/api/v1/teams/{$this->team->slug}/recovery/approvals";
+
+    // The customer replies: the sequence ends, the approval is moot.
+    DB::table('scheduled_actions')->where('step', 2)->update(['status' => 'cancelled']);
+
+    $this->actingAs($this->owner)->getJson($base)->assertOk()->assertJsonCount(0, 'data');
+    $this->actingAs($this->owner)->postJson("{$base}/{$approvalId}", ['decision' => 'approve'])->assertStatus(409);
+
+    expect(DB::table('discount_approvals')->value('status'))->toBe('pending');
 });

@@ -68,7 +68,7 @@ class MessageSender
                 'context' => $context,
             ]));
         } catch (UniqueConstraintViolationException) {
-            return new SendResult(SendOutcome::Duplicate);
+            return $this->previousOutcome($idempotencyKey);
         }
 
         try {
@@ -104,6 +104,25 @@ class MessageSender
             $message->id,
             $code,
         );
+    }
+
+    /**
+     * The key was used before. Report what really happened to that send, so a
+     * failed attempt is never mistaken for a delivered message.
+     */
+    private function previousOutcome(string $idempotencyKey): SendResult
+    {
+        $previous = Message::query()->where('idempotency_key', $idempotencyKey)->first();
+
+        return match ($previous?->status) {
+            MessageStatus::Failed => new SendResult(
+                $previous->error_code === self::PER_USER_LIMIT_CODE ? SendOutcome::PerUserLimit : SendOutcome::Rejected,
+                $previous->id,
+                $previous->error_code,
+            ),
+            MessageStatus::Unknown => new SendResult(SendOutcome::Unknown, $previous->id),
+            default => new SendResult(SendOutcome::Duplicate, $previous?->id),
+        };
     }
 
     /**

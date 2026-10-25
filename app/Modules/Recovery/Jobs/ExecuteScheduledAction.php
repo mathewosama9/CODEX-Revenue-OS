@@ -5,6 +5,7 @@ namespace App\Modules\Recovery\Jobs;
 use App\Models\Team;
 use App\Modules\Commerce\Commerce;
 use App\Modules\Commerce\Data\CartSnapshot;
+use App\Modules\Commerce\LiveCartStatus;
 use App\Modules\Compliance\ActorType;
 use App\Modules\Compliance\AuditLogger;
 use App\Modules\Compliance\Consent\ConsentGate;
@@ -43,6 +44,10 @@ class ExecuteScheduledAction implements ShouldQueue
     private const NOT_READY_MAX_ATTEMPTS = 3;
 
     private const PER_USER_LIMIT_MAX_ATTEMPTS = 2;
+
+    private const CART_CHECK_RETRY_MINUTES = 15;
+
+    private const CART_CHECK_MAX_ATTEMPTS = 4;
 
     public function __construct(public int $tenantId, public int $actionId) {}
 
@@ -87,8 +92,16 @@ class ExecuteScheduledAction implements ShouldQueue
             return;
         }
 
-        if (! $commerce->isStillAbandoned($cart->id)) {
-            $lifecycle->cancelSequence($action->sequence, 'purchased');
+        $live = $commerce->liveCartStatus($cart->id);
+
+        if ($live === LiveCartStatus::Unknown) {
+            $this->retryOrFail($action, 'cart_check_failed', self::CART_CHECK_RETRY_MINUTES, self::CART_CHECK_MAX_ATTEMPTS, $lifecycle);
+
+            return;
+        }
+
+        if ($live !== LiveCartStatus::Abandoned) {
+            $lifecycle->cancelSequence($action->sequence, $live === LiveCartStatus::Purchased ? 'purchased' : 'cart_gone');
 
             return;
         }
@@ -113,7 +126,11 @@ class ExecuteScheduledAction implements ShouldQueue
             ? [$storeName, (string) $discount->code, (string) $cart->checkoutUrl]
             : [$storeName, (string) $cart->checkoutUrl];
 
-        $result = $sender->sendTemplate($cart->phone, $purpose, $parameters, null, $action->idempotency_key, [
+        // A retry (after 131049, say) is a new send with its own key; a re-run of
+        // the same attempt keeps the key, so it can never send twice.
+        $sendKey = $action->attempts === 0 ? $action->idempotency_key : "{$action->idempotency_key}:a{$action->attempts}";
+
+        $result = $sender->sendTemplate($cart->phone, $purpose, $parameters, null, $sendKey, [
             'cart_id' => $cart->id,
             'step' => $action->step,
             'discount_percent' => $useDiscount ? $discount->percent : 0,
@@ -128,7 +145,7 @@ class ExecuteScheduledAction implements ShouldQueue
         ]);
 
         match ($result->outcome) {
-            SendOutcome::Accepted, SendOutcome::Duplicate => $this->sent($action, $settings, $quietHours, $lifecycle, $useDiscount ? $discount->percent : 0, $result->messageId),
+            SendOutcome::Accepted, SendOutcome::Duplicate => $this->sent($action, $settings, $quietHours, $lifecycle, $useDiscount ? $discount->percent : 0, $useDiscount ? DiscountPolicy::expectedDiscountHalalas($cart, $discount->percent) : 0, $result->messageId),
             SendOutcome::PerUserLimit => $this->retryOrFail($action, 'per_user_limit_131049', 24 * 60, self::PER_USER_LIMIT_MAX_ATTEMPTS, $lifecycle),
             SendOutcome::NotReady => $this->retryOrFail($action, 'whatsapp_not_ready', self::NOT_READY_RETRY_MINUTES, self::NOT_READY_MAX_ATTEMPTS, $lifecycle),
             SendOutcome::Rejected, SendOutcome::Unknown => $lifecycle->failAction($action, 'send_'.$result->outcome->value),
@@ -146,7 +163,10 @@ class ExecuteScheduledAction implements ShouldQueue
             $approval = DiscountApproval::query()->find($approvalId);
 
             if ($approval?->status === 'approved' && $settings->discount_code !== null) {
-                return DiscountDecision::apply($approval->percent, $settings->discount_code);
+                // The budget may have been used up while the owner was deciding.
+                return $discounts->coversBudget($settings, $cart, $approval->percent)
+                    ? DiscountDecision::apply($approval->percent, $settings->discount_code)
+                    : DiscountDecision::none('budget_exhausted');
             }
 
             if ($approval?->status === 'pending' && $approval->expires_at->isFuture()) {
@@ -198,11 +218,12 @@ class ExecuteScheduledAction implements ShouldQueue
             : 'cart_recovery_2';
     }
 
-    private function sent(ScheduledAction $action, RecoverySettings $settings, QuietHours $quietHours, RecoveryLifecycle $lifecycle, int $discountPercent, ?int $messageId): void
+    private function sent(ScheduledAction $action, RecoverySettings $settings, QuietHours $quietHours, RecoveryLifecycle $lifecycle, int $discountPercent, int $reservedHalalas, ?int $messageId): void
     {
         $action->update([
             'status' => ActionStatus::Done,
-            'result' => $action->result + ['message_id' => $messageId, 'discount_percent' => $discountPercent],
+            // The reservation counts against the monthly discount budget (DiscountPolicy).
+            'result' => $action->result + ['message_id' => $messageId, 'discount_percent' => $discountPercent, 'discount_reserved_halalas' => $reservedHalalas],
         ]);
 
         if ($action->step >= min(3, $settings->max_messages)) {

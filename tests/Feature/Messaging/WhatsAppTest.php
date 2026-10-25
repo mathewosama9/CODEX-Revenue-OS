@@ -89,11 +89,19 @@ it('never sends twice for the same idempotency key', function () {
 });
 
 it('does not retry when the outcome is unknown', function () {
-    Http::fake(fn () => throw new ConnectionException('timeout'));
+    $calls = 0;
+    Http::fake(function () use (&$calls) {
+        $calls++;
 
+        throw new ConnectionException('timeout');
+    });
+
+    // The repeat reports the first send's real outcome, and never calls Meta again.
     expect(send()->outcome)->toBe(SendOutcome::Unknown)
-        ->and(send()->outcome)->toBe(SendOutcome::Duplicate)
-        ->and(DB::table('messages')->value('status'))->toBe('unknown');
+        ->and(send()->outcome)->toBe(SendOutcome::Unknown)
+        ->and(DB::table('messages')->count())->toBe(1)
+        ->and(DB::table('messages')->value('status'))->toBe('unknown')
+        ->and($calls)->toBe(1);
 });
 
 it('reports the per-user marketing limit separately', function () {

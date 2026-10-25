@@ -11,6 +11,7 @@ use App\Modules\Recovery\Models\RecoverySettings;
 use App\Modules\Recovery\RecoveryControls;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class RecoveryController
@@ -53,7 +54,24 @@ class RecoveryController
         ]);
 
         $settings = RecoverySettings::current();
-        $settings->update($validated);
+        $settings->fill($validated);
+
+        // A discount that is "on" must be able to go out: a code and a budget
+        // (no budget = no discounts, Rule 9). Checked on the merged result, so a
+        // partial update can't leave a silent half-configured policy (review B6).
+        if ($settings->discount_enabled) {
+            $missing = array_filter([
+                'discount_code' => blank($settings->discount_code) ? __('Enter the Salla discount code.') : null,
+                'discount_percent' => $settings->discount_percent <= 0 ? __('Enter a discount above 0%.') : null,
+                'monthly_discount_budget_halalas' => $settings->monthly_discount_budget_halalas <= 0 ? __('Set a monthly discount budget above 0.') : null,
+            ]);
+
+            if ($missing !== []) {
+                throw ValidationException::withMessages($missing);
+            }
+        }
+
+        $settings->save();
 
         $this->audit->record('recovery.settings_updated', ActorType::User, $request->user()?->id, subject: $settings, context: [
             'fields' => array_keys($validated),
@@ -88,6 +106,8 @@ class RecoveryController
             ->with('action.sequence')
             ->where('status', 'pending')
             ->where('expires_at', '>', now())
+            // Not when the sequence already ended (the customer bought or replied).
+            ->whereHas('action', fn ($query) => $query->where('status', ActionStatus::AwaitingApproval))
             ->orderBy('expires_at')
             ->get()
             ->map(fn (DiscountApproval $approval) => [
@@ -103,18 +123,27 @@ class RecoveryController
     {
         $validated = $request->validate(['decision' => ['required', 'in:approve,reject']]);
 
-        $record = DiscountApproval::query()->where('status', 'pending')->findOrFail((int) $request->route('approval'));
+        // One decision per approval, even with two owners clicking at once.
+        $record = DB::transaction(function () use ($request, $validated) {
+            $record = DiscountApproval::query()->where('status', 'pending')->lockForUpdate()->findOrFail((int) $request->route('approval'));
 
-        abort_if($record->expires_at->isPast(), 410, __('This approval expired; the message went without a discount.'));
+            abort_if($record->expires_at->isPast(), 410, __('This approval expired; the message went without a discount.'));
 
-        $record->update([
-            'status' => $validated['decision'] === 'approve' ? 'approved' : 'rejected',
-            'decided_by' => $request->user()?->id,
-            'decided_at' => now(),
-        ]);
+            $action = $record->action()->lockForUpdate()->first();
 
-        // Run the waiting step now with the decision.
-        $record->action()->where('status', ActionStatus::AwaitingApproval)->update(['status' => ActionStatus::Pending, 'run_at' => now()]);
+            abort_if($action?->status !== ActionStatus::AwaitingApproval, 409, __('This cart no longer needs a decision.'));
+
+            $record->update([
+                'status' => $validated['decision'] === 'approve' ? 'approved' : 'rejected',
+                'decided_by' => $request->user()?->id,
+                'decided_at' => now(),
+            ]);
+
+            // Run the waiting step now with the decision.
+            $action->update(['status' => ActionStatus::Pending, 'run_at' => now()]);
+
+            return $record;
+        });
 
         $this->audit->record('discount.'.$record->status, ActorType::User, $request->user()?->id, subject: $record, context: [
             'percent' => $record->percent,

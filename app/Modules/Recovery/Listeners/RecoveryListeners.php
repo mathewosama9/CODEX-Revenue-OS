@@ -12,6 +12,7 @@ use App\Modules\Compliance\Consent\ConsentRevoked;
 use App\Modules\Measurement\CostLedger;
 use App\Modules\Messaging\Events\InboundMessageReceived;
 use App\Modules\Messaging\Events\NumberQualityChanged;
+use App\Modules\Recovery\ActionStatus;
 use App\Modules\Recovery\Jobs\StartRecovery;
 use App\Modules\Recovery\Models\RecoverySequence;
 use App\Modules\Recovery\Models\RecoverySettings;
@@ -87,9 +88,15 @@ class RecoveryListeners
             return;
         }
 
+        // Only inside the report's outcome window after the send: the same code
+        // used months later is not a recovery cost (P1/P2 review B5).
+        $windowDays = (int) config('codex.measurement.outcome_window_days');
+
         $sentDiscount = ScheduledAction::query()
             ->whereIn('recovery_sequence_id', RecoverySequence::query()->where('subject_hash', $order->phoneHash)->select('id'))
+            ->where('status', ActionStatus::Done)
             ->where('result->discount_percent', '>', 0)
+            ->whereBetween('updated_at', [$order->placedAt->subDays($windowDays), $order->placedAt])
             ->exists();
 
         if ($sentDiscount) {
