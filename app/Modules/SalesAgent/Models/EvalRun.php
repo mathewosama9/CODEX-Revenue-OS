@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Modules\AiGateway\Models;
+namespace App\Modules\SalesAgent\Models;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;

@@ -94,14 +94,7 @@ class SalesAgent
             return $this->finish($run, AgentRun::SKIPPED, 'no_text'); // e.g. an image or a sticker: a person looks.
         }
 
-        $cart = $this->commerce->openCartFor($conversation->subjectHash);
-        $reason = $this->rules->check($latest->text, $cart?->totalHalalas, $settings->handoff_cart_halalas);
-
-        if ($reason !== null) {
-            return $this->handOff($run, $conversation, $settings, $reason);
-        }
-
-        [$reply, $reason, $context] = $this->ask($run, $conversation, $settings, $history);
+        [$reply, $reason] = $this->decide($run, $conversation, $settings, $history);
 
         // A member may have taken over while the model was thinking (US-E12-03).
         if ($this->inbox->conversation($conversationId)?->aiPaused === true) {
@@ -115,6 +108,51 @@ class SalesAgent
         return $settings->mode === AgentMode::ScopedAutonomous
             ? $this->send($run, $conversation, $reply->text)
             : $this->draft($run, $conversation, $reply->text);
+    }
+
+    /**
+     * The same decision as a live run, with nothing saved or sent: what the
+     * golden set measures (US-E10-05).
+     *
+     * @param  list<ChatTurn>  $history
+     */
+    public function evaluate(array $history, string $subjectHash): Decision
+    {
+        $settings = $this->controls->settings();
+        $run = new AgentRun(['trace' => [], 'attempts' => 0, 'validator_blocks' => 0, 'cost_usd_micros' => 0]);
+        $conversation = new ConversationSnapshot(0, $subjectHash, null, 'open', 'eval', false, CarbonImmutable::now());
+
+        [$reply, $reason] = $this->decide($run, $conversation, $settings, $history);
+
+        return new Decision(
+            text: $reply?->text,
+            handoff: $reply === null ? ($reason ?? HandoffReason::EmptyReply) : null,
+            tools: array_values(array_unique(array_column($run->trace, 'tool'))),
+            attempts: $run->attempts,
+            validatorBlocks: $run->validator_blocks,
+            costUsdMicros: $run->cost_usd_micros,
+        );
+    }
+
+    /**
+     * Rules first, then the model with its guards.
+     *
+     * @param  list<ChatTurn>  $history  ends with the customer
+     * @return array{0: AiReply|null, 1: HandoffReason|null}
+     */
+    private function decide(AgentRun $run, ConversationSnapshot $conversation, AgentSettings $settings, array $history): array
+    {
+        $latest = end($history);
+        $cart = $this->commerce->openCartFor($conversation->subjectHash);
+        $reason = $this->rules->check($latest === false ? '' : $latest->text, $cart?->totalHalalas, $settings->handoff_cart_halalas);
+
+        if ($reason !== null) {
+            return [null, $reason];
+        }
+
+        [$reply, $reason] = $this->ask($run, $conversation, $settings, $history);
+
+        return [$reply, $reason];
     }
 
     private function skipReason(ConversationSnapshot $conversation, int $inboundMessageId): ?string
@@ -133,13 +171,12 @@ class SalesAgent
      * The model, the guards, and one retry if a number did not check out.
      *
      * @param  list<ChatTurn>  $history
-     * @return array{0: AiReply|null, 1: HandoffReason|null, 2: RunContext}
+     * @return array{0: AiReply|null, 1: HandoffReason|null}
      */
     private function ask(AgentRun $run, ConversationSnapshot $conversation, AgentSettings $settings, array $history): array
     {
         $instructions = SystemPrompt::for($this->storeName());
         $trace = [];
-        $context = new RunContext($conversation->subjectHash);
 
         for ($attempt = 1; $attempt <= 2; $attempt++) {
             $context = new RunContext($conversation->subjectHash);
@@ -178,11 +215,15 @@ class SalesAgent
             };
 
             if ($reason !== null) {
-                return [null, $reason, $context];
+                return [null, $reason];
             }
 
             if ($reply->validation->passed()) {
-                return $reply->ok() ? [$reply, null, $context] : [null, HandoffReason::EmptyReply, $context];
+                return match (true) {
+                    ! $reply->ok() => [null, HandoffReason::EmptyReply],
+                    $this->rules->mentionsDiscount($reply->text) => [null, HandoffReason::DiscountRequest],
+                    default => [$reply, null],
+                };
             }
 
             $run->validator_blocks++;
@@ -191,7 +232,7 @@ class SalesAgent
             $instructions = SystemPrompt::for($this->storeName()).SystemPrompt::retryNote($reply->validation->unmatched);
         }
 
-        return [null, HandoffReason::ValidatorFailed, $context];
+        return [null, HandoffReason::ValidatorFailed];
     }
 
     private function draft(AgentRun $run, ConversationSnapshot $conversation, string $text): AgentRun

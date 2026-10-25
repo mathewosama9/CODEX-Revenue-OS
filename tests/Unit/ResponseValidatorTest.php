@@ -70,3 +70,11 @@ it('does not read pseudonym tokens as numbers', function () {
 it('accepts a reply with no numbers at all', function () {
     expect(check('أكيد، وش المناسبة اللي تبي العطر لها؟', []))->toBe([]);
 });
+
+it('accepts only links a tool returned, and ignores their digits', function () {
+    $link = new ToolOutcome('get_cart_link', [], ['available' => true, 'url' => 'https://store.test/checkout/8812']);
+
+    expect(check('كمّل طلبك من هنا: https://store.test/checkout/8812', [$link]))->toBe([])
+        ->and(check('ادفع هنا https://pay.evil.test/8812', [$link]))->toBe(['url:https://pay.evil.test/8812'])
+        ->and(check('رابط المنتج https://store.test/p/rose', [product()]))->toBe(['url:https://store.test/p/rose']);
+});

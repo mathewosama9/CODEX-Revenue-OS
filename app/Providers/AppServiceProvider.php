@@ -28,6 +28,7 @@ use App\Modules\Messaging\Listeners\BookDeliveryCost;
 use App\Modules\Messaging\Meta\MetaGraphClient;
 use App\Modules\Recovery\Listeners\RecoveryListeners;
 use App\Modules\SalesAgent\AgentControls;
+use App\Modules\SalesAgent\Eval\GoldenSet;
 use App\Modules\SalesAgent\Listeners\AgentListeners;
 use App\Modules\SalesAgent\Toolbox;
 use App\Shared\Phone\SubjectHasher;
@@ -122,6 +123,8 @@ class AppServiceProvider extends ServiceProvider
             (int) round((float) config('codex.ai.default_daily_cap_usd') * 1_000_000),
             (int) config('codex.ai.handoff_cart_halalas'),
         ));
+
+        $this->app->bind(GoldenSet::class, fn () => new GoldenSet(base_path('evals/golden')));
 
         $this->app->bind(Toolbox::class, fn ($app) => new Toolbox(
             $app->make(CatalogSearch::class),

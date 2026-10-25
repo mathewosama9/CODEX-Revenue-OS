@@ -20,7 +20,7 @@ final class KnowledgeBase implements KnowledgeRetriever
 
     public function __construct(private readonly AiGateway $gateway) {}
 
-    public function save(?KnowledgeDocument $document, KnowledgeKind $kind, string $title, string $body, int $userId): KnowledgeDocument
+    public function save(?KnowledgeDocument $document, KnowledgeKind $kind, string $title, string $body, ?int $userId): KnowledgeDocument
     {
         $document ??= new KnowledgeDocument;
         $document->fill(['kind' => $kind, 'title' => $title, 'body' => $body, 'updated_by' => $userId])->save();

@@ -23,13 +23,13 @@ final class HandoffRules
 
     private const COMPLAINT = [
         'شكوي', 'اشتكي', 'مشكله', 'مشاكل', 'متاخر', 'تاخر', 'تالف', 'مكسور', 'خربان', 'خربانه', 'نصب', 'احتيال',
-        'زعلان', 'سيء', 'سيئ', 'complaint', 'problem', 'broken', 'damaged', 'scam', 'refund',
+        'زعلان', 'سيء', 'سيئ', 'اتاخر', 'اتاخرت', 'باظ', 'بايظ', 'complaint', 'problem', 'broken', 'damaged', 'scam', 'refund',
         'ما وصل', 'ماوصل', 'لم يصل', 'ما جاني', 'ماجاني', 'وصلني غلط', 'رجعوا فلوسي', 'ابي فلوسي', 'never arrived', 'not arrived',
     ];
 
     private const DISCOUNT = [
         'خصم', 'خصومات', 'كوبون', 'كوبونات', 'تخفيض', 'تخفيضات', 'عروض', 'ارخص', 'تفاوض', 'discount', 'coupon',
-        'promo', 'cheaper', 'deal', 'كود خصم', 'اخر سعر', 'اقل سعر', 'تنزل السعر', 'نزل السعر', 'تنزلي', 'في عرض',
+        'promo', 'cheaper', 'deal', 'كود خصم', 'اخر سعر', 'اقل سعر', 'تنزل السعر', 'نزل السعر', 'تنزل لي السعر', 'نزل لي السعر', 'تنزلي', 'اتفاوض', 'في عرض',
         'فيه عرض', 'عليه عرض', 'best price', 'last price', 'lower price',
     ];
 
@@ -45,6 +45,18 @@ final class HandoffRules
             $cartHalalas !== null && $cartThresholdHalalas !== null && $cartHalalas >= $cartThresholdHalalas => HandoffReason::HighCartValue,
             default => null,
         };
+    }
+
+    /**
+     * Rule 9 on the way out: a reply that talks about a discount is never
+     * sent, even one the model was tricked into (e.g. by text hidden in a
+     * product description). A person answers instead.
+     */
+    public function mentionsDiscount(string $reply): bool
+    {
+        $text = ArabicText::normalize(ArabicText::withoutArabicPunctuation($reply));
+
+        return self::matches($text, self::tokens($text), self::DISCOUNT);
     }
 
     /**
