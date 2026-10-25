@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Modules\AiGateway\AiGateway;
+use App\Modules\AiGateway\ResponseValidator;
+use App\Modules\Billing\UsageMeter;
 use App\Modules\Commerce\Commerce;
 use App\Modules\Commerce\CommerceAdapter;
 use App\Modules\Commerce\Salla\SallaAdapter;
@@ -82,6 +85,24 @@ class AppServiceProvider extends ServiceProvider
             (int) config('codex.measurement.attribution_window_hours'),
             (int) config('codex.measurement.mde_halalas_per_subject'),
             (string) config('codex.measurement.method_version'),
+        ));
+
+        $this->app->bind(AiGateway::class, fn ($app) => new AiGateway(
+            $app->make(CostLedger::class),
+            $app->make(UsageMeter::class),
+            $app->make(ResponseValidator::class),
+            (string) config('codex.ai.provider'),
+            (string) config('codex.ai.model'),
+            (array) config('codex.ai.pricing_usd_per_mtok'),
+            (int) config('codex.ai.timeout_seconds'),
+            (int) config('codex.ai.max_steps'),
+            (int) config('codex.ai.max_output_tokens'),
+            [
+                'provider' => (string) config('codex.ai.embeddings.provider'),
+                'model' => (string) config('codex.ai.embeddings.model'),
+                'dimensions' => (int) config('codex.ai.embeddings.dimensions'),
+                'usd_per_mtok' => (float) config('codex.ai.embeddings.usd_per_mtok'),
+            ],
         ));
 
         $this->app->singleton(QuietHours::class, fn () => new QuietHours(
