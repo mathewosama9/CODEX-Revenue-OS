@@ -7,11 +7,17 @@ use App\Modules\AiGateway\ResponseValidator;
 use App\Modules\Billing\UsageMeter;
 use App\Modules\Commerce\Commerce;
 use App\Modules\Commerce\CommerceAdapter;
+use App\Modules\Commerce\Events\ProductChanged;
 use App\Modules\Commerce\Salla\SallaAdapter;
 use App\Modules\Commerce\Salla\SallaClient;
 use App\Modules\Compliance\AuditLogger;
 use App\Modules\Compliance\QuietHours;
 use App\Modules\Inbox\Listeners\OpenConversation;
+use App\Modules\Knowledge\CatalogSearch;
+use App\Modules\Knowledge\HybridCatalogSearch;
+use App\Modules\Knowledge\KnowledgeBase;
+use App\Modules\Knowledge\KnowledgeRetriever;
+use App\Modules\Knowledge\Listeners\FollowCatalog;
 use App\Modules\Measurement\CostLedger;
 use App\Modules\Measurement\ExperimentAssigner;
 use App\Modules\Measurement\MarginLookup;
@@ -98,12 +104,16 @@ class AppServiceProvider extends ServiceProvider
             (int) config('codex.ai.max_steps'),
             (int) config('codex.ai.max_output_tokens'),
             [
+                'enabled' => (bool) config('codex.ai.embeddings.enabled'),
                 'provider' => (string) config('codex.ai.embeddings.provider'),
                 'model' => (string) config('codex.ai.embeddings.model'),
                 'dimensions' => (int) config('codex.ai.embeddings.dimensions'),
                 'usd_per_mtok' => (float) config('codex.ai.embeddings.usd_per_mtok'),
             ],
         ));
+
+        $this->app->bind(CatalogSearch::class, HybridCatalogSearch::class);
+        $this->app->bind(KnowledgeRetriever::class, KnowledgeBase::class);
 
         $this->app->singleton(QuietHours::class, fn () => new QuietHours(
             config('codex.quiet_hours.timezone'),
@@ -130,6 +140,7 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(MessageDelivered::class, BookDeliveryCost::class);
         Event::subscribe(RecoveryListeners::class);
         Event::listen(InboundMessageReceived::class, OpenConversation::class);
+        Event::listen(ProductChanged::class, FollowCatalog::class);
     }
 
     /**

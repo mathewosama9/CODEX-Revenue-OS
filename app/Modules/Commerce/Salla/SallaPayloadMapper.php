@@ -7,6 +7,7 @@ use App\Modules\Commerce\Data\CustomerData;
 use App\Modules\Commerce\Data\LineItemData;
 use App\Modules\Commerce\Data\OrderData;
 use App\Modules\Commerce\Data\ProductData;
+use App\Modules\Commerce\Data\VariantData;
 use App\Shared\Phone\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
@@ -69,16 +70,94 @@ final class SallaPayloadMapper
     public function product(array $product): ProductData
     {
         $categories = $this->list(Arr::get($product, 'categories'));
+        $regular = $this->money(Arr::get($product, 'regular_price'));
+        $current = $this->money(Arr::get($product, 'price'));
 
         return new ProductData(
             externalId: (string) Arr::get($product, 'id'),
             name: (string) (Arr::get($product, 'name') ?? ''),
             sku: $this->string(Arr::get($product, 'sku')),
             categoryExternalId: $this->string($categories[0]['id'] ?? null),
-            priceHalalas: Arr::has($product, 'price') ? $this->halalas(Arr::get($product, 'price')) : null,
+            priceHalalas: $this->sellingPrice($current, $this->money(Arr::get($product, 'sale_price')), $regular),
             quantity: is_numeric(Arr::get($product, 'quantity')) ? (int) Arr::get($product, 'quantity') : null,
             status: $this->string(Arr::get($product, 'status')),
+            description: $this->plainText(Arr::get($product, 'description')),
+            url: $this->string(Arr::get($product, 'urls.customer') ?? Arr::get($product, 'url')),
+            regularPriceHalalas: $regular ?? $current,
+            isAvailable: is_bool(Arr::get($product, 'is_available')) ? Arr::get($product, 'is_available') : null,
+            unlimitedQuantity: Arr::get($product, 'unlimited_quantity') === true,
+            variants: $this->variants($product),
         );
+    }
+
+    /**
+     * Salla `price` is the current price; `sale_price` is set (non-zero, below
+     * the regular price) only during a sale (docs.salla.dev ProductDetails,
+     * read 2026-10-25). [افتراض] Confirm on the demo store which of the two
+     * the storefront shows during a sale.
+     */
+    private function sellingPrice(?int $current, ?int $sale, ?int $regular): ?int
+    {
+        if ($sale !== null && $sale > 0 && ($regular === null || $sale < $regular)) {
+            return $sale;
+        }
+
+        return $current;
+    }
+
+    /**
+     * Variants (`skus`) carry option value ids; the names are on the product's
+     * `options[].values[]` (docs.salla.dev, read 2026-10-25).
+     *
+     * @param  array<string, mixed>  $product
+     * @return list<VariantData>
+     */
+    private function variants(array $product): array
+    {
+        $names = [];
+
+        foreach ($this->list(Arr::get($product, 'options')) as $option) {
+            foreach ($this->list($option['values'] ?? null) as $value) {
+                $names[(string) ($value['id'] ?? '')] = (string) ($value['name'] ?? '');
+            }
+        }
+
+        return array_map(function (array $sku) use ($names) {
+            $label = array_filter(array_map(
+                fn ($id) => $names[(string) $id] ?? null,
+                (array) ($sku['related_option_values'] ?? []),
+            ));
+            $regular = $this->money($sku['regular_price'] ?? null);
+
+            return new VariantData(
+                externalId: (string) ($sku['id'] ?? ''),
+                name: $label === [] ? (string) ($sku['sku'] ?? '') : implode(' / ', $label),
+                priceHalalas: $this->sellingPrice($this->money($sku['price'] ?? null), $this->money($sku['sale_price'] ?? null), $regular),
+                quantity: is_numeric($sku['stock_quantity'] ?? null) ? (int) $sku['stock_quantity'] : null,
+                unlimitedQuantity: ($sku['unlimited_quantity'] ?? false) === true,
+            );
+        }, $this->list(Arr::get($product, 'skus')));
+    }
+
+    private function money(mixed $amount): ?int
+    {
+        if (is_array($amount)) {
+            $amount = $amount['amount'] ?? null;
+        }
+
+        return is_numeric($amount) ? (int) round(((float) $amount) * 100) : null;
+    }
+
+    /** Product descriptions are HTML; the search and the agent read text. */
+    private function plainText(mixed $html): ?string
+    {
+        if (! is_string($html) || trim($html) === '') {
+            return null;
+        }
+
+        $text = html_entity_decode(strip_tags(str_replace(['<br>', '<br/>', '<br />', '</p>', '</li>'], "\n", $html)), ENT_QUOTES | ENT_HTML5);
+
+        return mb_substr(trim((string) preg_replace('/[ \t]+/u', ' ', $text)), 0, 4000);
     }
 
     /**
