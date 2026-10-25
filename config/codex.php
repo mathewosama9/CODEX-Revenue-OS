@@ -59,6 +59,9 @@ return [
             // Groq, for local trials only (founder 2026-10-25); production stays on Haiku 5.5.
             // [مؤكدة: https://console.groq.com/docs/model/openai/gpt-oss-120b, 2026-10-25]; cache_write [افتراض].
             'openai/gpt-oss-120b' => ['input' => 0.15, 'output' => 0.60, 'cache_read' => 0.075, 'cache_write' => 0.15],
+            // DeepSeek, local trials only (founder 2026-10-25). [افتراض] Conservative guess: the pricing page
+            // (api-docs.deepseek.com/quick_start/pricing) did not load; read the real cost in the DeepSeek dashboard.
+            'deepseek-flash' => ['input' => 0.30, 'output' => 1.20, 'cache_read' => 0.03, 'cache_write' => 0.30],
         ],
         // US-E10-06, founder decision 2026-10-25: $5 a day per merchant by default.
         'default_daily_cap_usd' => 5.00,

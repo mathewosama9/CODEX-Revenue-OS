@@ -16,6 +16,7 @@ final readonly class GoldenCase
      * @param  list<string>  $contains
      * @param  list<string>  $notContains
      * @param  list<array<string, mixed>>|null  $offline  scripted model for CI, or null
+     * @param  self|null  $live  other expectations for the real model, when the scripted bad reply is not what it does
      */
     public function __construct(
         public string $id,
@@ -31,6 +32,7 @@ final readonly class GoldenCase
         public array $notContains,
         public bool $price,
         public ?array $offline,
+        public ?self $live = null,
     ) {}
 
     /** Handoffs decided by code before any model call: testable without a model. */

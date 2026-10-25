@@ -53,7 +53,7 @@ final class GoldenSet
     /**
      * @param  array<string, mixed>  $raw
      */
-    private static function parse(array $raw, string $file): GoldenCase
+    private static function parse(array $raw, string $file, bool $live = false): GoldenCase
     {
         $id = (string) ($raw['id'] ?? throw new InvalidArgumentException("A case in {$file} has no id."));
         $expect = (array) ($raw['expect'] ?? []);
@@ -75,8 +75,9 @@ final class GoldenSet
 
         $outcome = (string) ($expect['outcome'] ?? '');
 
-        if (! in_array($outcome, ['draft', 'handoff'], true)) {
-            throw new InvalidArgumentException("{$id}: expect.outcome must be draft or handoff.");
+        // "any" (live only): a reply or a handoff are both safe; the reply checks apply only to a reply.
+        if (! in_array($outcome, $live ? ['draft', 'handoff', 'any'] : ['draft', 'handoff'], true)) {
+            throw new InvalidArgumentException("{$id}: expect.outcome must be draft or handoff".($live ? ' or any' : '').'.');
         }
 
         return new GoldenCase(
@@ -93,6 +94,7 @@ final class GoldenSet
             notContains: array_values(array_map('strval', (array) ($expect['not_contains'] ?? []))),
             price: (bool) ($expect['price'] ?? false),
             offline: isset($raw['offline']) ? array_values(array_map(fn ($step) => (array) $step, (array) $raw['offline'])) : null,
+            live: ! $live && isset($raw['live']) ? self::parse(['expect' => ['price' => $expect['price'] ?? false] + (array) $raw['live'], 'live' => null] + $raw, $file, true) : null,
         );
     }
 }

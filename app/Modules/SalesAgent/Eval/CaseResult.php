@@ -13,6 +13,7 @@ final readonly class CaseResult
 
     /**
      * @param  list<string>  $problems
+     * @param  list<string>  $tools
      */
     public function __construct(
         public GoldenCase $case,
@@ -20,5 +21,6 @@ final readonly class CaseResult
         public array $problems = [],
         public ?string $reply = null,
         public int $costUsdMicros = 0,
+        public array $tools = [],
     ) {}
 }
