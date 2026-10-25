@@ -12,7 +12,7 @@ use Illuminate\Console\Command;
  */
 class RunGoldenSet extends Command
 {
-    protected $signature = 'ai:eval {--live : Call the real model (paid)} {--yes : Skip the cost confirmation}';
+    protected $signature = 'ai:eval {--live : Call the real model (paid)} {--yes : Skip the cost confirmation} {--pause=0 : Seconds between live cases (free tiers rate-limit)}';
 
     protected $description = 'Run the golden set against the sales agent (US-E10-05)';
 
@@ -31,7 +31,7 @@ class RunGoldenSet extends Command
                 default => '<comment>·</comment>',
             };
             $this->line("{$mark} {$result->case->id} ".implode('; ', $result->problems));
-        });
+        }, (int) $this->option('pause'));
 
         $liveOnly = count(array_filter($results, fn (CaseResult $r) => $r->status === CaseResult::LIVE_ONLY));
 

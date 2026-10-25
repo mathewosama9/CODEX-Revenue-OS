@@ -56,6 +56,9 @@ return [
         'price_max_age_minutes' => (int) env('CODEX_PRICE_MAX_AGE_MINUTES', 15),
         'pricing_usd_per_mtok' => [
             'claude-haiku-5-5' => ['input' => 0.10, 'output' => 0.50, 'cache_read' => 0.01, 'cache_write' => 0.125],
+            // Groq, for local trials only (founder 2026-10-25); production stays on Haiku 5.5.
+            // [مؤكدة: https://console.groq.com/docs/model/openai/gpt-oss-120b, 2026-10-25]; cache_write [افتراض].
+            'openai/gpt-oss-120b' => ['input' => 0.15, 'output' => 0.60, 'cache_read' => 0.075, 'cache_write' => 0.15],
         ],
         // US-E10-06, founder decision 2026-10-25: $5 a day per merchant by default.
         'default_daily_cap_usd' => 5.00,
