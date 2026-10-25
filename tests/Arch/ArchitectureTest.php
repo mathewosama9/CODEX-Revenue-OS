@@ -6,11 +6,13 @@ use Symfony\Component\Finder\Finder;
 const MODULES = [
     'Identity', 'Commerce', 'Messaging', 'Inbox', 'Recovery',
     'Measurement', 'Compliance', 'Billing', 'Platform',
+    'AiGateway', 'Knowledge', 'SalesAgent',
 ];
 
 /** Cross-tenant tables (ADR-009). Each entry needs an ADR reference. */
 const TENANTLESS_MODELS = [
     'App\Modules\Platform\Models\Admin', // CODEX staff, platform level (E14)
+    'App\Modules\AiGateway\Models\EvalRun', // golden-set results, written by CODEX, no merchant data (E10)
 ];
 
 /** Modules allowed to bypass the tenant scope (09 §9.4.2). */
@@ -35,6 +37,23 @@ foreach (MODULES as $module) {
         ->expect("App\\Modules\\{$module}\\Models")
         ->toOnlyBeUsedIn("App\\Modules\\{$module}");
 }
+
+arch('only the AiGateway talks to the AI SDK (US-E10-01)')
+    ->expect('Laravel\Ai')
+    ->toOnlyBeUsedIn('App\Modules\AiGateway');
+
+arch('no other LLM client exists beside the gateway (US-E10-01)')
+    ->expect(['Anthropic', 'OpenAI', 'Prism', 'Gemini'])
+    ->not->toBeUsed();
+
+it('sends no HTTP request to an AI provider outside the gateway (US-E10-01)', function () {
+    $hosts = '/anthropic\.com|openai\.com|voyageai\.com|generativelanguage\.googleapis|api\.mistral|api\.cohere/i';
+    $files = Finder::create()->files()->name('*.php')->in(appDir())->notPath('Modules/AiGateway');
+
+    foreach ($files as $file) {
+        expect(preg_match($hosts, $file->getContents()))->toBe(0, "app/{$file->getRelativePathname()} names an AI provider host.");
+    }
+});
 
 arch('measurement never reads message content (ADR-009)')
     ->expect('App\Modules\Measurement')

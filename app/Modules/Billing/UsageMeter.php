@@ -17,6 +17,13 @@ class UsageMeter
 
     public const MESSAGES_DELIVERED = 'messages_delivered';
 
+    public const AI_CALLS = 'ai_calls';
+
+    /** Micro-dollars, so the founder sees AI cost per tenant per day (US-E10-02). */
+    public const AI_COST_USD_MICROS = 'ai_cost_usd_micros';
+
+    public const AI_DRAFTS = 'ai_drafts';
+
     public function __construct(private readonly TenantContext $tenants) {}
 
     public function increment(string $metric, int $by = 1, ?CarbonImmutable $at = null): void
