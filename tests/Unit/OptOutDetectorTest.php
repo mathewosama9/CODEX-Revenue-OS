@@ -26,6 +26,9 @@ it('treats short stop messages as opt-out', function (string $message) {
     'ما ابي رسايل',
     'بطلوا',
     'Unsubscribe',
+    'إيقاف؟',
+    'وقف،',
+    'الغاء الاشتراك؛',
 ]);
 
 it('treats not-now replies as ambiguous, not opt-out', function (string $message) {

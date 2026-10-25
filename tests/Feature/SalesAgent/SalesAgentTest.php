@@ -71,7 +71,7 @@ function inStore(Closure $callback): mixed
 }
 
 /** The customer writes on WhatsApp: the real Meta webhook path. */
-function customerSays(string $text): void
+function customerSays(string $text, string $from = '966512345678'): void
 {
     static $n = 0;
     $n++;
@@ -79,7 +79,7 @@ function customerSays(string $text): void
         'id' => AGENT_WABA,
         'changes' => [['field' => 'messages', 'value' => [
             'metadata' => ['phone_number_id' => AGENT_PHONE_ID],
-            'messages' => [['from' => '966512345678', 'id' => 'wamid.in.'.$n.'.'.uniqid(), 'type' => 'text', 'text' => ['body' => $text]]],
+            'messages' => [['from' => $from, 'id' => 'wamid.in.'.$n.'.'.uniqid(), 'type' => 'text', 'text' => ['body' => $text]]],
         ]]],
     ]]]);
 
@@ -262,12 +262,12 @@ it('hands off when the model calls handoff, or the provider is down', function (
     expect(lastRun()->handoff_reason)->toBe('provider_unavailable');
 });
 
-it('stays silent without documented consent, after an opt-out, or when switched off', function () {
+it('stays silent after an opt-out, or when switched off', function () {
     FakeLlm::script([]);
 
     inStore(fn () => app(ConsentGate::class)->revoke($this->customer, ConsentSource::OptOutKeyword, ['why' => 'test']));
     customerSays('بكم العود؟');
-    expect(lastRun()->status)->toBe('skipped')->and(lastRun()->handoff_reason)->toBe('no_consent');
+    expect(lastRun()->status)->toBe('skipped')->and(lastRun()->handoff_reason)->toBe('opted_out');
 
     $runs = DB::table('agent_runs')->count();
     customerSays('إيقاف');
@@ -529,4 +529,17 @@ it('refuses a model with no configured price instead of billing it uncounted (re
     expect(lastRun()->handoff_reason)->toBe('provider_unavailable')
         ->and(DB::table('ai_calls')->value('error'))->toBe('unpriced_model');
     GatewayAgent::assertNeverPrompted();
+});
+
+it('answers a customer who wrote first without marketing consent, unless the stricter rule is on', function () {
+    $stranger = '966598765432'; // never imported, never opted in
+    FakeLlm::script(priceAnswer());
+
+    customerSays('بكم العود؟', $stranger);
+    expect(lastRun()->status)->toBe('drafted');
+
+    config(['codex.ai.reply_requires_marketing_consent' => true]);
+    FakeLlm::script([]);
+    customerSays('طيب ومتى يوصل؟', $stranger);
+    expect(lastRun()->status)->toBe('skipped')->and(lastRun()->handoff_reason)->toBe('no_consent');
 });

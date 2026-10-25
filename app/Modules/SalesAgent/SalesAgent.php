@@ -12,7 +12,6 @@ use App\Modules\Billing\UsageMeter;
 use App\Modules\Commerce\Commerce;
 use App\Modules\Compliance\ActorType;
 use App\Modules\Compliance\AuditLogger;
-use App\Modules\Compliance\Consent\ConsentGate;
 use App\Modules\Compliance\QuietHours;
 use App\Modules\Inbox\Data\ConversationSnapshot;
 use App\Modules\Inbox\Inbox;
@@ -52,7 +51,7 @@ class SalesAgent
         private readonly Messaging $messaging,
         private readonly MessageSender $sender,
         private readonly Commerce $commerce,
-        private readonly ConsentGate $consent,
+        private readonly ReplyConsent $replyConsent,
         private readonly QuietHours $quietHours,
         private readonly UsageMeter $usage,
         private readonly AuditLogger $audit,
@@ -168,8 +167,8 @@ class SalesAgent
             $conversation->aiPaused => 'paused',
             $this->messaging->latestInboundId($conversation->subjectHash) !== $inboundMessageId => 'superseded',
             $conversation->phone === null => 'no_phone',
-            // Opted out or no documented consent: the AI stays silent (prompt rule; people still can answer).
-            ! $this->consent->mayMessage($conversation->phone) => 'no_consent',
+            // An opt-out always silences the AI; people still can answer (see ReplyConsent).
+            $this->replyConsent->refusal($conversation->phone) !== null => $this->replyConsent->refusal($conversation->phone),
             default => null,
         };
     }
@@ -336,7 +335,7 @@ class SalesAgent
             && $fresh !== null
             && ! $fresh->aiPaused
             && $fresh->phone !== null
-            && $this->consent->mayMessage($fresh->phone)
+            && $this->replyConsent->allows($fresh->phone)
             && $this->messaging->latestInboundId($fresh->subjectHash) === $run->inbound_message_id;
     }
 

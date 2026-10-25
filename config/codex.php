@@ -59,6 +59,9 @@ return [
         ],
         // US-E10-06, founder decision 2026-10-25: $5 a day per merchant by default.
         'default_daily_cap_usd' => 5.00,
+        // Founder 2026-10-25: the AI answers a customer who wrote first unless they opted out.
+        // true = also require documented marketing consent (the stricter P3 brief). [افتراض قانوني]
+        'reply_requires_marketing_consent' => (bool) env('CODEX_AI_REPLY_REQUIRES_CONSENT', false),
         // A cart this big goes to a person before the AI answers (09 §9.11.3). [اقتراح] 1,500 SAR.
         'handoff_cart_halalas' => 150_000,
         'embeddings' => [
