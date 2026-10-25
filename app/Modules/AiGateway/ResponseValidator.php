@@ -11,7 +11,7 @@ use App\Shared\Arabic\ArabicText;
  * same turn. No model judgement: a reply that fails is blocked.
  *
  * Money from tools is in halalas (`*_halalas`), so both 19900 and 199 are
- * accepted for it. Numbers written as words next to a currency or a percent
+ * accepted for it. Every link must be one a tool returned. Numbers written as words next to a currency or a percent
  * sign are blocked too, since they cannot be checked.
  */
 final class ResponseValidator
@@ -32,18 +32,36 @@ final class ResponseValidator
     public function validate(string $reply, array $tools): ValidationResult
     {
         $allowed = [];
+        $urls = [];
 
         foreach ($tools as $tool) {
             if (! $tool->failed) {
                 $this->collect($tool->result, $allowed);
+                $result = $tool->result;
+                array_walk_recursive($result, function ($value) use (&$urls) {
+                    if (is_string($value) && str_starts_with($value, 'http')) {
+                        $urls[] = $value;
+                    }
+                });
             }
+        }
+
+        $unmatched = [];
+
+        // Links too: only one a tool returned (no invented or out-of-stock links, no phishing).
+        preg_match_all('#https?://[^\s<>"\)\]]+#u', $reply, $links);
+
+        foreach ($links[0] as $link) {
+            if (! in_array(rtrim($link, '.,،!؟'), $urls, true)) {
+                $unmatched[] = 'url:'.$link;
+            }
+
+            $reply = str_replace($link, ' ', $reply);
         }
 
         $text = self::normalizeNumbers($reply);
         // Pseudonym tokens such as [PHONE_A] are not numbers the customer reads as facts.
         $text = (string) preg_replace('/\[[A-Z]+_[A-Z]+\]/', ' ', $text);
-
-        $unmatched = [];
 
         preg_match_all('/\d+(?:\.\d+)?/', $text, $matches);
 

@@ -39,7 +39,7 @@ final class FakeLlm
         return new ToolCall('call_'.bin2hex(random_bytes(4)), $name, $arguments);
     }
 
-    public static function reply(string $text, int $inputTokens = 2000, int $outputTokens = 120): TextResponse
+    public static function reply(string $text, int $inputTokens = 0, int $outputTokens = 0): TextResponse
     {
         return new TextResponse($text, new TextUsage($inputTokens, $outputTokens), new Meta('anthropic', 'claude-haiku-5-5'));
     }

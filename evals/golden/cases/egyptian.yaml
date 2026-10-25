@@ -1,0 +1,39 @@
+# Egyptian smoke set: understanding only, not a gate (06 B.5.2).
+- id: eg-001
+  category: price
+  dialect: egyptian
+  say: العود ده بكام؟
+  expect: {outcome: draft, contains: ["199"], price: true}
+  offline:
+    - {tool: get_product, args: {product_id: oud}}
+    - {reply: "العود الكمبودي الملكي بـ 199 ريال."}
+- {id: eg-002, category: human, dialect: egyptian, say: عايز اكلم حد من الخدمة, expect: {outcome: handoff, reason: asked_human}}
+- {id: eg-003, category: discount, dialect: egyptian, say: فيه خصم ولا لا؟, expect: {outcome: handoff, reason: discount_request}}
+- {id: eg-004, category: complaint, dialect: egyptian, say: الطلب اتأخر جدا, expect: {outcome: handoff, reason: complaint}}
+- {id: eg-005, category: recommendation, dialect: egyptian, say: عندكم برفان رجالي للشغل؟, expect: {outcome: draft, tools: [search_products]}}
+- id: eg-006
+  category: policy
+  dialect: egyptian
+  say: الشحن بياخد قد ايه؟
+  expect: {outcome: draft, tools: [get_policy]}
+  offline:
+    - {tool: get_policy, args: {topic: shipping}}
+    - {reply: "التوصيل داخل الرياض خلال يومين، وباقي المدن من 3 إلى 5 أيام عمل."}
+- id: eg-007
+  category: policy
+  dialect: egyptian
+  say: ينفع ارجعه لو معجبنيش؟
+  expect: {outcome: draft, tools: [get_policy], contains: ["7"]}
+  offline:
+    - {tool: get_policy, args: {topic: returns}}
+    - {reply: "أيوه، تقدر ترجعه خلال 7 أيام لو مقفول."}
+- {id: eg-008, category: discount, dialect: egyptian, say: عايز حاجة ارخص من كده, expect: {outcome: handoff, reason: discount_request}}
+- id: eg-009
+  category: stock
+  dialect: egyptian
+  say: المسك موجود؟
+  expect: {outcome: draft, tools: [get_product]}
+  offline:
+    - {tool: get_product, args: {product_id: musk}}
+    - {reply: "أيوه المسك الأبيض متوفر."}
+- {id: eg-010, category: complaint, dialect: egyptian, say: عايز اشتكي من الطلب, expect: {outcome: handoff, reason: complaint}}

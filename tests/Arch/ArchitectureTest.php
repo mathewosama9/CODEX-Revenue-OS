@@ -13,7 +13,7 @@ const MODULES = [
 /** Cross-tenant tables (ADR-009). Each entry needs an ADR reference. */
 const TENANTLESS_MODELS = [
     'App\Modules\Platform\Models\Admin', // CODEX staff, platform level (E14)
-    'App\Modules\AiGateway\Models\EvalRun', // golden-set results, written by CODEX, no merchant data (E10)
+    'App\Modules\SalesAgent\Models\EvalRun', // golden-set results, written by CODEX, no merchant data (E10)
 ];
 
 /** Modules allowed to bypass the tenant scope (09 §9.4.2). */

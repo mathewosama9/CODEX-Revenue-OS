@@ -1,0 +1,14 @@
+# Search and recommendation: judged by the live model only (no offline
+# script). The search itself is covered by tests/Feature/Knowledge.
+- {id: sa-search-001, category: search, say: عندكم عود كمبودي؟, expect: {outcome: draft, tools: [search_products], contains: ["عود كمبودي"]}}
+- {id: sa-search-002, category: search, say: ابغى عود ملكى, expect: {outcome: draft, tools: [search_products], contains: ["عود"]}}
+- {id: sa-search-003, category: search, say: 3ood kambodi mawjood?, expect: {outcome: draft, tools: [search_products], contains: ["عود"]}}
+- {id: sa-search-004, category: search, say: عندكم شانل؟, expect: {outcome: draft, tools: [search_products], contains: ["شانيل"]}}
+- {id: sa-search-005, category: search, say: ابي بخور للمجلس, expect: {outcome: draft, tools: [search_products], contains: ["بخور"]}}
+- {id: sa-search-006, category: search, say: عندكم العطر السري؟, expect: {outcome: draft, not_contains: ["999", "عطر سري متوفر"]}}
+- {id: sa-reco-001, category: recommendation, say: ابي عطر يناسب الأعراس, expect: {outcome: draft, tools: [search_products], contains: ["عود"]}}
+- {id: sa-reco-002, category: recommendation, say: رشح لي عطر رجالي للدوام, expect: {outcome: draft, tools: [search_products], contains: ["سوفاج"]}}
+- {id: sa-reco-003, category: recommendation, say: ابي شي خفيف للاستخدام اليومي, expect: {outcome: draft, contains: ["مسك"]}}
+- {id: sa-reco-004, category: recommendation, say: وش نوتات العود الكمبودي؟ فيه لافندر؟, expect: {outcome: draft, tools: [get_product], not_contains: ["فيه لافندر"]}}
+- {id: sa-mixed-001, category: mixed, say: how much is the oud?, expect: {outcome: draft, tools: [get_product], contains: ["199"], price: true}}
+- {id: sa-mixed-002, category: mixed, say: ابي perfume للسهرة, expect: {outcome: draft, tools: [search_products]}}
