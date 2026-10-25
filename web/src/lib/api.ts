@@ -54,6 +54,8 @@ export async function request(
 
     const headers: Record<string, string> = {
         Accept: 'application/json',
+        // Laravel answers validation errors in the language of the page.
+        'Accept-Language': document.documentElement.lang || 'ar',
         'X-Requested-With': 'XMLHttpRequest',
     };
 

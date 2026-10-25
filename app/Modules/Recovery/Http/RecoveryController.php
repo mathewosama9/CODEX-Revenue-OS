@@ -65,7 +65,7 @@ class RecoveryController
     public function enable(Request $request): JsonResponse
     {
         if (! $this->checklist->passes()) {
-            throw ValidationException::withMessages(['enabled' => 'Complete the go-live checklist first.']);
+            throw ValidationException::withMessages(['enabled' => __('Complete the go-live checklist first.')]);
         }
 
         RecoverySettings::current()->update(['enabled' => true]);
@@ -105,7 +105,7 @@ class RecoveryController
 
         $record = DiscountApproval::query()->where('status', 'pending')->findOrFail((int) $request->route('approval'));
 
-        abort_if($record->expires_at->isPast(), 410, 'This approval expired; the message went without a discount.');
+        abort_if($record->expires_at->isPast(), 410, __('This approval expired; the message went without a discount.'));
 
         $record->update([
             'status' => $validated['decision'] === 'approve' ? 'approved' : 'rejected',

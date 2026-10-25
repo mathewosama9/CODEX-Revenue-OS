@@ -47,7 +47,8 @@ class TeamInvitation extends Notification implements ShouldQueue
             ->line(__('Log in and visit your dashboard to accept or decline this invitation.'))
             ->action(
                 __('Log in'),
-                route('login', ['invitation' => $this->invitation->code]),
+                // The Next.js app lists pending invitations after sign-in (ADR-002).
+                sprintf('%s/%s/login', config('app.frontend_url'), app()->getLocale() === 'en' ? 'en' : 'ar'),
             );
     }
 
