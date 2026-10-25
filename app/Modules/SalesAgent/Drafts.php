@@ -12,6 +12,7 @@ use App\Modules\SalesAgent\Models\ReplyDraft;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Assisted mode (US-E11-01): a member approves, edits or rejects each AI
@@ -56,7 +57,14 @@ class Drafts
             return $this->expire($draft, $userId, 'no_consent');
         }
 
-        $result = $this->sender->sendServiceText($conversation->phone, $text, ['source' => 'ai_draft', 'draft_id' => $draft->id]);
+        try {
+            $result = $this->sender->sendServiceText($conversation->phone, $text, ['source' => 'ai_draft', 'draft_id' => $draft->id]);
+        } catch (Throwable $exception) {
+            // Never leave a draft stuck in "sending".
+            $draft->update(['status' => 'failed', 'send_error' => 'unknown']);
+
+            throw $exception;
+        }
 
         $draft->update($result->accepted()
             ? ['status' => $edited ? 'edited' : 'approved', 'final_body' => $text]
@@ -93,6 +101,12 @@ class Drafts
         $this->audit->record('ai_draft.rejected', ActorType::User, $userId, subject: $draft);
 
         return $draft->refresh();
+    }
+
+    /** Retention: draft text follows the message-text window (M10). */
+    public function purgeBefore(CarbonImmutable $cutoff): int
+    {
+        return ReplyDraft::query()->where('created_at', '<', $cutoff)->delete();
     }
 
     /** Takeover: nothing the AI wrote earlier may go out now (US-E12-03). */

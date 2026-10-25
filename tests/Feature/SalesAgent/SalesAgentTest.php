@@ -396,9 +396,10 @@ it('sends a checked reply directly once Scoped Autonomous is on, and lets agents
 
 it('switches an autonomous store back to Assisted when the validator blocks over 2% (US-E10-07)', function () {
     DB::table('agent_settings')->update(['mode' => 'scoped_autonomous']);
+    $past = DB::table('conversations')->insertGetId(['tenant_id' => $this->team->id, 'subject_hash' => str_repeat('b', 64), 'status' => 'closed', 'reason' => 'customer_message', 'last_message_at' => now()]);
     $rows = [];
     for ($i = 1; $i <= 60; $i++) {
-        $rows[] = ['tenant_id' => $this->team->id, 'conversation_id' => 1, 'inbound_message_id' => 10_000 + $i, 'mode' => 'scoped_autonomous',
+        $rows[] = ['tenant_id' => $this->team->id, 'conversation_id' => $past, 'inbound_message_id' => 10_000 + $i, 'mode' => 'scoped_autonomous',
             'status' => 'sent', 'attempts' => 1, 'validator_blocks' => $i <= 2 ? 1 : 0, 'trace' => '[]', 'created_at' => now(), 'updated_at' => now()];
     }
     DB::table('agent_runs')->insert($rows);
@@ -443,4 +444,89 @@ it('never drafts a reply that offers a discount, even one planted in a product d
 
     expect(lastRun()->handoff_reason)->toBe('discount_request')
         ->and(DB::table('reply_drafts')->count())->toBe(0);
+});
+
+it('hides the team members names from the model', function () {
+    $this->member->update(['name' => 'خالد العتيبي']);
+    FakeLlm::script([FakeLlm::reply('أهلًا')]);
+    DB::table('messages')->insert([
+        'tenant_id' => $this->team->id, 'direction' => 'outbound', 'subject_hash' => $this->hash, 'status' => 'delivered',
+        'body' => encrypt('معك خالد من عطور الريم، كيف أخدمك؟', false), 'context' => '{}', 'created_at' => now()->subMinute(), 'updated_at' => now(),
+    ]);
+
+    customerSays('طيب يا خالد بكم المسك؟');
+
+    GatewayAgent::assertNotPrompted(function (AgentPrompt $prompt) {
+        $payload = $prompt->prompt;
+        foreach ($prompt->agent->messages() as $message) {
+            $payload .= ' '.$message->content;
+        }
+
+        return str_contains($payload, 'خالد');
+    });
+});
+
+it('does not send an autonomous reply when the AI was stopped or the customer opted out during the model call', function (string $what) {
+    DB::table('agent_settings')->update(['mode' => 'scoped_autonomous']);
+    FakeLlm::script([
+        FakeLlm::tool('get_product', ['product_id' => 'oud']),
+        function () use ($what) {
+            $what === 'stop'
+                ? DB::table('agent_settings')->update(['mode' => 'off'])
+                : inStore(fn () => app(ConsentGate::class)->revoke($this->customer, ConsentSource::OptOutKeyword, ['why' => 'test']));
+
+            return FakeLlm::reply('العود بـ 199 ريال');
+        },
+    ]);
+
+    customerSays('بكم العود؟');
+
+    expect(textsSent())->toBe([])
+        ->and(lastRun()->handoff_reason)->toBe('stopped_before_send');
+})->with(['stop', 'opt-out']);
+
+it('deletes the agent runs and drafts with the customer data (DSR)', function () {
+    FakeLlm::script(priceAnswer());
+    customerSays('بكم العود؟');
+
+    $this->actingAs($this->owner)->postJson("{$this->base}/data-requests", ['phone' => '0512345678', 'type' => 'delete'])->assertOk();
+
+    expect(DB::table('reply_drafts')->count())->toBe(0)->and(DB::table('agent_runs')->count())->toBe(0);
+});
+
+it('starts the 4-week clock again after the agent was switched off', function () {
+    DB::table('agent_settings')->update(['assisted_since' => now()->subDays(40)]);
+
+    inStore(fn () => app(AgentControls::class)->setMode($this->owner->id, AgentMode::Off));
+    inStore(fn () => app(AgentControls::class)->setMode($this->owner->id, AgentMode::Assisted));
+
+    expect(inStore(fn () => app(AgentControls::class)->assistedDays()))->toBe(0);
+});
+
+it('does not answer an older question again when the customer sends an image (review #3)', function () {
+    FakeLlm::script(priceAnswer());
+    customerSays('بكم العود؟');
+    $runs = DB::table('agent_runs')->count();
+
+    // An image arrives: the webhook stores it with no text.
+    $id = DB::table('messages')->insertGetId([
+        'tenant_id' => $this->team->id, 'direction' => 'inbound', 'subject_hash' => $this->hash, 'status' => 'received',
+        'body' => encrypt('', false), 'context' => '{"type":"image"}', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $run = inStore(fn () => app(SalesAgent::class)->respond(DB::table('conversations')->value('id'), $id));
+
+    expect($run->handoff_reason)->toBe('no_text')
+        ->and(DB::table('reply_drafts')->count())->toBe(1)
+        ->and(DB::table('agent_runs')->count())->toBe($runs + 1);
+});
+
+it('refuses a model with no configured price instead of billing it uncounted (review #5)', function () {
+    config(['codex.ai.model' => 'claude-unpriced']);
+    FakeLlm::script([]);
+
+    customerSays('بكم العود؟');
+
+    expect(lastRun()->handoff_reason)->toBe('provider_unavailable')
+        ->and(DB::table('ai_calls')->value('error'))->toBe('unpriced_model');
+    GatewayAgent::assertNeverPrompted();
 });

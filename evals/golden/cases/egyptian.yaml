@@ -27,7 +27,8 @@
   offline:
     - {tool: get_policy, args: {topic: returns}}
     - {reply: "أيوه، تقدر ترجعه خلال 7 أيام لو مقفول."}
-- {id: eg-008, category: discount, dialect: egyptian, say: عايز حاجة ارخص من كده, expect: {outcome: handoff, reason: discount_request}}
+- {id: eg-008, category: recommendation, dialect: egyptian, say: عايز حاجة ارخص من كده, expect: {outcome: draft, tools: [search_products]}}
+- {id: eg-011, category: discount, dialect: egyptian, say: ممكن تعملي خصم؟, expect: {outcome: handoff, reason: discount_request}}
 - id: eg-009
   category: stock
   dialect: egyptian

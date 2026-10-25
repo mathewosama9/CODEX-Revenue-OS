@@ -66,6 +66,25 @@ class Messaging
         return $id === null ? null : (int) $id;
     }
 
+    /** Text of one customer message; null for an image, a sticker or a deleted body. */
+    public function inboundText(int $messageId): ?string
+    {
+        $body = Message::query()->whereKey($messageId)->where('direction', Message::INBOUND)->first()?->body;
+
+        return $body === null || trim($body) === '' ? null : $body;
+    }
+
+    /** Was this kind of automatic message sent to the customer since then? */
+    public function sentSince(string $subjectHash, string $source, CarbonImmutable $since): bool
+    {
+        return Message::query()
+            ->where('subject_hash', $subjectHash)
+            ->where('direction', Message::OUTBOUND)
+            ->where('context->source', $source)
+            ->where('created_at', '>=', $since)
+            ->exists();
+    }
+
     public function forgetSubject(string $subjectHash): int
     {
         return Message::query()->where('subject_hash', $subjectHash)->update(['body' => null]);

@@ -46,7 +46,8 @@ final class Pseudonymizer
             }
 
             $text = (string) preg_replace_callback(
-                '/'.preg_quote($name, '/').'/iu',
+                // Whole words only: a member called "Ali" must not turn "Alien" into "[NAME_A]en".
+                '/(?<![\p{L}\p{N}])'.preg_quote($name, '/').'(?![\p{L}\p{N}])/iu',
                 fn (array $m) => $this->token('NAME', $m[0]),
                 $text,
             );
