@@ -44,7 +44,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
     const nav = (
         <nav className="flex flex-col gap-1">
-            {NAV.filter((item) => can(item.permission)).map((item) => {
+            {NAV.filter((item) => item.permission === null || can(item.permission)).map((item) => {
                 const target = href(`/t/${slug}${item.path}`);
                 const active = pathname.startsWith(target);
 

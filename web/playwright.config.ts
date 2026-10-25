@@ -37,7 +37,8 @@ export default defineConfig<{ lang: 'ar' | 'en' }>({
             },
         },
         {
-            command: process.env.CI ? `npx next build && npx next start -p ${WEB_PORT}` : `npx next dev -p ${WEB_PORT}`,
+            // A production build: closer to real use, and it can run next to `npm run dev`.
+            command: `npx next build && npx next start -p ${WEB_PORT}`,
             url: `http://localhost:${WEB_PORT}/ar/login`,
             reuseExistingServer: !process.env.CI,
             timeout: 180_000,
