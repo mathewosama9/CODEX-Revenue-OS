@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
+import { ApiDown } from '@/components/app-shell';
 import { Lockup } from '@/components/lockup';
 import { Preferences } from '@/components/preferences';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,7 @@ export default function WorkspacesPage() {
     const { t } = useI18n();
     const href = useHref();
     const router = useRouter();
-    const { data: me, error } = useMe();
+    const { data: me, error, refetch } = useMe();
     const client = useQueryClient();
     const respond = useMutation({
         mutationFn: ({ code, accept }: { code: string; accept: boolean }) =>
@@ -36,6 +37,10 @@ export default function WorkspacesPage() {
             router.replace(href(`/t/${me.teams[0].slug}${homeFor(me.teams[0])}`));
         }
     }, [me, direct, error, router, href]);
+
+    if (error && !isUnauthenticated(error)) {
+        return <ApiDown onRetry={() => void refetch()} />;
+    }
 
     return (
         <div className="flex min-h-screen flex-col">

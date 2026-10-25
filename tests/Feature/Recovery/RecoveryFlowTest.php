@@ -451,3 +451,20 @@ it('hides and refuses approvals whose cart no longer needs one (H11)', function 
 
     expect(DB::table('discount_approvals')->value('status'))->toBe('pending');
 });
+
+it('lets an agent stop sending, without seeing the settings (review H7)', function () {
+    $agent = User::factory()->create();
+    $this->team->members()->attach($agent, ['role' => TeamRole::Agent->value]);
+    $base = "/api/v1/teams/{$this->team->slug}/recovery";
+    abandonCart();
+
+    $this->actingAs($agent)->getJson("{$base}/status")->assertOk()->assertJsonPath('data.enabled', true);
+    $this->actingAs($agent)->getJson($base)->assertForbidden();
+
+    $this->actingAs($agent)->postJson("{$base}/pause")
+        ->assertOk()
+        ->assertExactJson(['data' => ['enabled' => false]]);
+
+    expect(DB::table('scheduled_actions')->value('status'))->toBe('cancelled')
+        ->and(DB::table('recovery_settings')->value('enabled'))->toBeFalse();
+});

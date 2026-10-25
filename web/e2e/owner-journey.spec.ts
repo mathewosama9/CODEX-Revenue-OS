@@ -57,6 +57,8 @@ test.describe('owner journey', () => {
 
         // Inbox: take the conversation, leave a note, close it.
         await page.getByRole('link', { name: t.nav.inbox }).click();
+        // Recovery is on, so whoever holds the kill switch sees it here too (H7).
+        await expect(page.getByRole('button', { name: t.recovery.pause })).toBeVisible();
         await page.getByTestId('inbox-list').getByRole('link').first().click();
         await expect(page.getByText('هل يوجد توصيل لجدة اليوم؟')).toBeVisible();
         await page.getByRole('button', { name: t.inbox.take }).click();

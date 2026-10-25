@@ -2,15 +2,15 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 
 import { AuthHeading } from '@/components/auth-shell';
 import { Field } from '@/components/field';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/i18n';
-import { api, ensureCsrf } from '@/lib/api';
+import { api, ApiError, ensureCsrf, REDIRECTED } from '@/lib/api';
 import { afterSignIn, useHref } from '@/lib/session';
 import { useSubmit } from '@/lib/use-form';
 
@@ -19,7 +19,7 @@ export default function LoginPage() {
     const href = useHref();
     const router = useRouter();
     const client = useQueryClient();
-    const { busy, errors, failed, run } = useSubmit();
+    const { busy, errors, failed, failedStatus, run } = useSubmit();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [remember, setRemember] = useState(false);
@@ -30,11 +30,22 @@ export default function LoginPage() {
         void run(async () => {
             await ensureCsrf(true);
 
-            const result = await api<{ two_factor?: boolean }>('POST', '/login', {
-                email,
-                password,
-                remember,
-            });
+            const credentials = { email, password, remember };
+            let result: { two_factor?: boolean };
+
+            try {
+                result = await api<{ two_factor?: boolean }>('POST', '/login', credentials);
+            } catch (error) {
+                // Laravel redirects a guest route when an older session is still
+                // alive, possibly another account's. End it and sign in as typed (review H9).
+                if (!(error instanceof ApiError && error.status === REDIRECTED)) {
+                    throw error;
+                }
+
+                await api('POST', '/logout').catch(() => undefined);
+                await ensureCsrf(true);
+                result = await api<{ two_factor?: boolean }>('POST', '/login', credentials);
+            }
 
             if (result?.two_factor) {
                 router.push(href('/two-factor'));
@@ -50,6 +61,9 @@ export default function LoginPage() {
     return (
         <>
             <AuthHeading title={t.auth.loginTitle} subtitle={t.auth.loginSubtitle} />
+            <Suspense>
+                <ExpiredNotice />
+            </Suspense>
             <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
                 <Field
                     id="email"
@@ -84,7 +98,7 @@ export default function LoginPage() {
                 </label>
                 {failed && (
                     <Alert variant="destructive">
-                        <AlertDescription>{t.common.error}</AlertDescription>
+                        <AlertDescription>{failedStatus === 429 ? t.auth.tooManyAttempts : t.common.error}</AlertDescription>
                     </Alert>
                 )}
                 <Button type="submit" disabled={busy}>
@@ -103,5 +117,21 @@ export default function LoginPage() {
                 </div>
             </form>
         </>
+    );
+}
+
+/** Shown after the app sent the user back here (?expired=1 or ?expired=challenge). */
+function ExpiredNotice() {
+    const { t } = useI18n();
+    const reason = useSearchParams().get('expired');
+
+    if (reason === null) {
+        return null;
+    }
+
+    return (
+        <Alert className="mb-4" role="status">
+            <AlertDescription>{reason === 'challenge' ? t.auth.challengeExpired : t.auth.sessionExpired}</AlertDescription>
+        </Alert>
     );
 }

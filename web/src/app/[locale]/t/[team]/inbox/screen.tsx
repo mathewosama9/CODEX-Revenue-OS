@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { Assignee } from '@/components/inbox';
+import { KillSwitch } from '@/components/kill-switch';
 import { PageHeader } from '@/components/page-header';
 import { QueryState } from '@/components/query-state';
 import { Button } from '@/components/ui/button';
@@ -31,7 +32,7 @@ export default function InboxPage() {
 
     return (
         <>
-            <PageHeader title={t.inbox.title} />
+            <PageHeader title={t.inbox.title} actions={<KillSwitch />} />
             <div className="flex flex-wrap gap-1" role="tablist">
                 {FILTERS.map((filter) => (
                     <Button
