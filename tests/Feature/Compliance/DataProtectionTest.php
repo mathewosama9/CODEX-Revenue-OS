@@ -11,6 +11,8 @@ use App\Shared\Logging\RedactPersonalData;
 use App\Shared\Phone\PhoneNumber;
 use App\Shared\Phone\SubjectHasher;
 use App\Shared\Tenancy\TenantContext;
+use App\Shared\Webhooks\WebhookEvent;
+use App\Shared\Webhooks\WebhookStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -80,4 +82,22 @@ it('drops message text past the retention window but keeps the record', function
 
     $message = DB::table('messages')->first();
     expect($message->body)->toBeNull()->and($message->status)->toBe('received');
+});
+
+it('scrubs the customer from stored webhook payloads on deletion, keeping the dedupe row (review H5)', function () {
+    $other = Team::factory()->create();
+    $mine = WebhookEvent::query()->create(['provider' => 'salla', 'external_event_id' => 'e1', 'event_type' => 'abandoned.cart', 'tenant_id' => $this->team->id, 'payload' => ['data' => ['customer' => ['mobile' => '512345678', 'mobile_code' => '+966', 'name' => 'ريم']]], 'status' => 'failed']);
+    $unrelated = WebhookEvent::query()->create(['provider' => 'salla', 'external_event_id' => 'e2', 'event_type' => 'abandoned.cart', 'tenant_id' => $this->team->id, 'payload' => ['data' => ['customer' => ['mobile' => '598765432']]], 'status' => 'processed']);
+    $foreign = WebhookEvent::query()->create(['provider' => 'salla', 'external_event_id' => 'e3', 'event_type' => 'abandoned.cart', 'tenant_id' => $other->id, 'payload' => ['data' => ['customer' => ['mobile' => '512345678']]], 'status' => 'processed']);
+
+    $this->actingAs($this->owner)
+        ->postJson("/api/v1/teams/{$this->team->slug}/data-requests", ['phone' => '+966512345678', 'type' => 'delete'])
+        ->assertOk()
+        ->assertJsonPath('data.webhook_payloads', 1);
+
+    expect($mine->fresh()->payload)->toBe(['redacted' => 'data_subject_request'])
+        ->and($mine->fresh()->status)->toBe(WebhookStatus::Processed)
+        ->and($unrelated->fresh()->payload['data']['customer']['mobile'])->toBe('598765432')
+        // Another merchant's customer with the same number is not this request.
+        ->and($foreign->fresh()->payload['data']['customer']['mobile'])->toBe('512345678');
 });

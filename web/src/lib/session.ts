@@ -20,6 +20,7 @@ export type Permission =
     | 'invitation:create'
     | 'invitation:cancel'
     | 'member:remove'
+    | 'consent:import'
     | 'ai:kill-switch'
     | (string & {});
 

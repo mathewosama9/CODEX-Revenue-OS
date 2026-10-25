@@ -13,6 +13,7 @@ use App\Modules\Messaging\WhatsAppOnboarding;
 use App\Shared\Integrations\TenantRoute;
 use App\Shared\Phone\PhoneNumber;
 use App\Shared\Tenancy\TenantContext;
+use App\Shared\Webhooks\ProcessWebhookEvent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -216,3 +217,32 @@ it('refuses to register a number before the data region is decided (ADR-006)', f
 
     asTeam(fn () => app(WhatsAppOnboarding::class)->complete('code', WABA, PHONE_ID, '123456', null));
 })->throws(RuntimeException::class, 'ADR-006');
+
+it('never loses an opt-out when processing fails part-way (review B7)', function () {
+    Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.confirm']]])]);
+    asTeam(fn () => app(ConsentGate::class)->grant($this->customer, ConsentSource::CheckoutOptIn, ['text_version' => 'v1']));
+
+    // A transient failure after the message row was written.
+    $failOnce = true;
+    Event::listen(InboundMessageReceived::class, function () use (&$failOnce) {
+        if ($failOnce) {
+            $failOnce = false;
+
+            throw new RuntimeException('database hiccup');
+        }
+    });
+
+    try {
+        metaWebhook(['messages' => [['from' => '966512345678', 'id' => 'wamid.in.b7', 'type' => 'text', 'text' => ['body' => 'إيقاف']]]]);
+    } catch (RuntimeException) {
+        // The webhook job failed; the platform (or our retry) runs it again.
+    }
+
+    expect(DB::table('messages')->where('wamid', 'wamid.in.b7')->exists())->toBeFalse()
+        ->and(asTeam(fn () => app(ConsentGate::class)->mayMessage($this->customer)))->toBeTrue();
+
+    ProcessWebhookEvent::dispatchSync((int) DB::table('webhook_events')->value('id'));
+
+    expect(asTeam(fn () => app(ConsentGate::class)->mayMessage($this->customer)))->toBeFalse()
+        ->and(DB::table('messages')->where('wamid', 'wamid.in.b7')->count())->toBe(1);
+});

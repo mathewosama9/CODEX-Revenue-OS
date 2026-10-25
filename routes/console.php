@@ -61,7 +61,8 @@ Schedule::call(function () {
 Schedule::call(function () {
     WebhookEvent::query()
         ->where('received_at', '<', now()->subDays((int) config('codex.retention.webhook_payload_days')))
-        ->whereIn('status', [WebhookStatus::Processed, WebhookStatus::Unhandled])
+        // Failed ones too: retries end within the hour, and their payloads hold PII (review H5).
+        ->whereIn('status', [WebhookStatus::Processed, WebhookStatus::Unhandled, WebhookStatus::Failed])
         ->delete();
 
     foreach (array_unique([...TenantRoute::tenantsFor(TenantRoute::SALLA), ...TenantRoute::tenantsFor(TenantRoute::META)]) as $tenantId) {

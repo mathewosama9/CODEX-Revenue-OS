@@ -24,6 +24,7 @@ use App\Shared\Webhooks\WebhookEvent;
 use App\Shared\Webhooks\WebhookHandler;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -164,37 +165,49 @@ class MetaWebhookHandler implements WebhookHandler
             ? OptOutDecision::OptOut
             : $this->optOuts->detect($text);
 
-        $message = Message::create([
-            'whatsapp_number_id' => $number?->id,
-            'direction' => Message::INBOUND,
-            'wamid' => $wamid,
-            'subject_hash' => $phone === null ? null : $this->hasher->hash($this->tenants->require(), $phone),
-            'status' => MessageStatus::Received,
-            'body' => $text,
-            'context' => array_filter([
-                'type' => Arr::get($inbound, 'type'),
-                'reply_to_wamid' => Arr::get($inbound, 'context.id'),
-                'opt_out_decision' => $decision->value,
-            ]),
-        ]);
+        $optOut = $decision === OptOutDecision::OptOut && $phone !== null;
 
-        if ($decision === OptOutDecision::OptOut && $phone !== null) {
-            $this->consent->revoke(
-                $phone,
-                $isButton ? ConsentSource::TemplateButton : ConsentSource::OptOutKeyword,
-                ['inbound_message_id' => $message->id],
+        // The message row is also the dedupe marker, so it commits together with
+        // the consent revocation and the cancellations it triggers. A failure
+        // part-way rolls everything back and the webhook retry starts clean,
+        // instead of finding the wamid and skipping the opt-out (review B7).
+        DB::transaction(function () use ($wamid, $number, $phone, $text, $inbound, $decision, $isButton, $optOut) {
+            $message = Message::create([
+                'whatsapp_number_id' => $number?->id,
+                'direction' => Message::INBOUND,
+                'wamid' => $wamid,
+                'subject_hash' => $phone === null ? null : $this->hasher->hash($this->tenants->require(), $phone),
+                'status' => MessageStatus::Received,
+                'body' => $text,
+                'context' => array_filter([
+                    'type' => Arr::get($inbound, 'type'),
+                    'reply_to_wamid' => Arr::get($inbound, 'context.id'),
+                    'opt_out_decision' => $decision->value,
+                ]),
+            ]);
+
+            if ($optOut) {
+                $this->consent->revoke(
+                    $phone,
+                    $isButton ? ConsentSource::TemplateButton : ConsentSource::OptOutKeyword,
+                    ['inbound_message_id' => $message->id],
+                );
+            }
+
+            InboundMessageReceived::dispatch(
+                $message->tenant_id,
+                $message->id,
+                $message->subject_hash,
+                $decision === OptOutDecision::OptOut,
+                $decision === OptOutDecision::Ambiguous,
             );
+        });
 
+        // Outside the transaction: a network call must never hold it open, and
+        // the opt-out already stands even if this confirmation fails.
+        if ($optOut) {
             $this->sender->sendServiceText($phone, (string) config('whatsapp_templates.opt_out_confirmation'), ['reason' => 'opt_out_confirmation']);
         }
-
-        InboundMessageReceived::dispatch(
-            $message->tenant_id,
-            $message->id,
-            $message->subject_hash,
-            $decision === OptOutDecision::OptOut,
-            $decision === OptOutDecision::Ambiguous,
-        );
     }
 
     /**

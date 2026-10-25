@@ -68,6 +68,11 @@ export default function OnboardingPage() {
                         {(data) => (
                             <div className="flex flex-col gap-4">
                                 <GoLiveChecklist items={data.go_live_checklist} />
+                                {!data.go_live_checklist.consent_source_ready && can('consent:import') && (
+                                    <Button asChild size="sm" variant="outline" className="self-start">
+                                        <Link href={href(`/t/${slug}/consent`)}>{t.onboarding.checklist.goToConsent}</Link>
+                                    </Button>
+                                )}
                                 {checklistPasses(data.go_live_checklist) && (
                                     <div className="flex flex-wrap items-center gap-3">
                                         <span className="text-sm text-gain">{t.onboarding.checklist.ready}</span>
