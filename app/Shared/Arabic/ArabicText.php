@@ -54,6 +54,17 @@ final class ArabicText
     }
 
     /**
+     * Arabic punctuation (؟ ، ؛ ٪ « ») sits in the Arabic Unicode block, so
+     * normalize() keeps it. Search and the agent's handoff rules strip it
+     * first. [Decision pending] normalize() itself is left unchanged because
+     * opt-out detection (Phase 1) depends on it; see STATUS.md.
+     */
+    public static function withoutArabicPunctuation(string $text): string
+    {
+        return str_replace(['؟', '،', '؛', '٪', '«', '»', '۔'], ' ', $text);
+    }
+
+    /**
      * The forms a search query is matched in: normalized, plus its Arabizi
      * reading when it has Latin letters.
      *
@@ -61,6 +72,7 @@ final class ArabicText
      */
     public static function searchForms(string $text): array
     {
+        $text = self::withoutArabicPunctuation($text);
         $forms = [self::normalize($text)];
 
         if (preg_match('/[a-z]/i', $text)) {

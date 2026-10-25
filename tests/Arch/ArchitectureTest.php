@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\SalesAgent\Toolbox;
 use App\Shared\Tenancy\BelongsToTenant;
 use Symfony\Component\Finder\Finder;
 
@@ -52,6 +53,28 @@ it('sends no HTTP request to an AI provider outside the gateway (US-E10-01)', fu
 
     foreach ($files as $file) {
         expect(preg_match($hosts, $file->getContents()))->toBe(0, "app/{$file->getRelativePathname()} names an AI provider host.");
+    }
+});
+
+arch('agent tools never move money or change orders (Rule 9)')
+    ->expect('App\Modules\SalesAgent\Tools')
+    ->not->toUse([
+        'App\Modules\Recovery',
+        'App\Modules\Messaging',
+        'App\Modules\Commerce\CommerceAdapter',
+        'App\Modules\Commerce\CommerceRecorder',
+        'App\Modules\Commerce\Salla',
+        'Illuminate\Support\Facades\Http',
+        'Illuminate\Support\Facades\DB',
+    ]);
+
+it('gives the agent exactly five read-only tools, none for discounts, payments or orders (Rule 9)', function () {
+    expect(Toolbox::ALLOWED)->toBe(['search_products', 'get_product', 'get_policy', 'get_cart_link', 'handoff']);
+
+    $files = Finder::create()->files()->name('*.php')->in(appDir('Modules/SalesAgent/Tools'));
+
+    foreach ($files as $file) {
+        expect(preg_match('/discount|coupon|voucher|payment|refund|order|خصم|كوبون/i', $file->getFilename()))->toBe(0, "{$file->getFilename()} looks like a money tool.");
     }
 });
 
