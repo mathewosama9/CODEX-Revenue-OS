@@ -26,6 +26,7 @@ enum TeamPermission: string
     case ManageDataRequests = 'data-requests:manage';
     case ImportConsent = 'consent:import';
     case ManageAutonomy = 'ai:autonomy';
+    case ManageKnowledge = 'knowledge:manage';
 
     case UseInbox = 'inbox:use';
     case ReviewAiDrafts = 'ai-drafts:review';

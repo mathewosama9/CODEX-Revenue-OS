@@ -27,6 +27,9 @@ use App\Modules\Messaging\Events\MessageDelivered;
 use App\Modules\Messaging\Listeners\BookDeliveryCost;
 use App\Modules\Messaging\Meta\MetaGraphClient;
 use App\Modules\Recovery\Listeners\RecoveryListeners;
+use App\Modules\SalesAgent\AgentControls;
+use App\Modules\SalesAgent\Listeners\AgentListeners;
+use App\Modules\SalesAgent\Toolbox;
 use App\Shared\Phone\SubjectHasher;
 use App\Shared\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
@@ -113,6 +116,19 @@ class AppServiceProvider extends ServiceProvider
         ));
 
         $this->app->bind(CatalogSearch::class, HybridCatalogSearch::class);
+
+        $this->app->bind(AgentControls::class, fn ($app) => new AgentControls(
+            $app->make(AuditLogger::class),
+            (int) round((float) config('codex.ai.default_daily_cap_usd') * 1_000_000),
+            (int) config('codex.ai.handoff_cart_halalas'),
+        ));
+
+        $this->app->bind(Toolbox::class, fn ($app) => new Toolbox(
+            $app->make(CatalogSearch::class),
+            $app->make(KnowledgeRetriever::class),
+            $app->make(Commerce::class),
+            (int) config('codex.ai.price_max_age_minutes'),
+        ));
         $this->app->bind(KnowledgeRetriever::class, KnowledgeBase::class);
 
         $this->app->singleton(QuietHours::class, fn () => new QuietHours(
@@ -139,7 +155,9 @@ class AppServiceProvider extends ServiceProvider
     {
         Event::listen(MessageDelivered::class, BookDeliveryCost::class);
         Event::subscribe(RecoveryListeners::class);
+        // Order matters: the conversation exists before the agent looks for it.
         Event::listen(InboundMessageReceived::class, OpenConversation::class);
+        Event::subscribe(AgentListeners::class);
         Event::listen(ProductChanged::class, FollowCatalog::class);
     }
 

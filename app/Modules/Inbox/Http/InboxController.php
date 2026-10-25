@@ -6,6 +6,7 @@ use App\Models\Team;
 use App\Modules\Commerce\Commerce;
 use App\Modules\Compliance\ActorType;
 use App\Modules\Compliance\AuditLogger;
+use App\Modules\Inbox\Inbox;
 use App\Modules\Inbox\Models\Conversation;
 use App\Modules\Inbox\Models\ConversationNote;
 use App\Modules\Messaging\Messaging;
@@ -20,6 +21,7 @@ class InboxController
         private readonly Commerce $commerce,
         private readonly Messaging $messaging,
         private readonly AuditLogger $audit,
+        private readonly Inbox $inbox,
     ) {}
 
     private const PAGE_SIZE = 50;
@@ -94,6 +96,21 @@ class InboxController
         return $this->show($request);
     }
 
+    /** Takeover / hand back to the AI (US-E12-03), both audited by the Inbox. */
+    public function takeover(Request $request): JsonResponse
+    {
+        $this->inbox->setAiPaused($this->conversation($request)->id, true, (int) $request->user()?->id);
+
+        return $this->show($request);
+    }
+
+    public function handBack(Request $request): JsonResponse
+    {
+        $this->inbox->setAiPaused($this->conversation($request)->id, false, (int) $request->user()?->id);
+
+        return $this->show($request);
+    }
+
     public function note(Request $request): JsonResponse
     {
         $conversation = $this->conversation($request);
@@ -126,6 +143,7 @@ class InboxController
             'status' => $conversation->status,
             'reason' => $conversation->reason,
             'assigned_user_id' => $conversation->assigned_user_id,
+            'ai_paused' => (bool) $conversation->ai_paused,
             'last_message_at' => $conversation->last_message_at->toIso8601String(),
         ];
     }

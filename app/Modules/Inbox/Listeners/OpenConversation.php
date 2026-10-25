@@ -34,7 +34,8 @@ class OpenConversation
                 'status' => 'open',
                 'reason' => $event->isAmbiguous ? 'not_now' : 'customer_message',
                 'last_message_at' => CarbonImmutable::now(),
-            ])->save();
+                'last_inbound_at' => CarbonImmutable::now(),
+            ] + ($event->phoneE164 === null ? [] : ['phone' => $event->phoneE164]))->save();
 
             if (! $wasWaiting) {
                 Notification::send($this->inboxUsers($event->tenantId), new CustomerNeedsHuman($conversation->reason));

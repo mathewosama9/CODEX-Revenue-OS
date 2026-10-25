@@ -36,7 +36,7 @@ class Messaging
     /**
      * The latest messages with one customer, oldest first (inbox read view).
      *
-     * @return list<array{direction: string, body: string|null, template: string|null, status: string, at: string}>
+     * @return list<array{id: int, direction: string, body: string|null, template: string|null, status: string, source: string|null, at: string}>
      */
     public function conversation(string $subjectHash, int $limit = 50): array
     {
@@ -47,13 +47,23 @@ class Messaging
             ->get()
             ->reverse()
             ->map(fn (Message $message) => [
+                'id' => $message->id,
                 'direction' => $message->direction,
                 'body' => $message->body,
                 'template' => $message->template_name,
                 'status' => $message->status->value,
+                'source' => is_string($message->context['source'] ?? null) ? $message->context['source'] : null,
                 'at' => $message->created_at->toIso8601String(),
             ])
             ->all());
+    }
+
+    /** The newest customer message: an agent run for an older one is superseded. */
+    public function latestInboundId(string $subjectHash): ?int
+    {
+        $id = Message::query()->where('subject_hash', $subjectHash)->where('direction', Message::INBOUND)->max('id');
+
+        return $id === null ? null : (int) $id;
     }
 
     public function forgetSubject(string $subjectHash): int

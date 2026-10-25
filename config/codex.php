@@ -59,6 +59,8 @@ return [
         ],
         // US-E10-06, founder decision 2026-10-25: $5 a day per merchant by default.
         'default_daily_cap_usd' => 5.00,
+        // A cart this big goes to a person before the AI answers (09 §9.11.3). [اقتراح] 1,500 SAR.
+        'handoff_cart_halalas' => 150_000,
         'embeddings' => [
             // Off: search runs on text alone (tests, and any env without a Voyage key).
             'enabled' => (bool) env('CODEX_EMBEDDINGS_ENABLED', true),

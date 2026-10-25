@@ -7,10 +7,13 @@ use App\Modules\Billing\Http\UsageController;
 use App\Modules\Compliance\Http\ConsentImportController;
 use App\Modules\Compliance\Http\DataRequestController;
 use App\Modules\Inbox\Http\InboxController;
+use App\Modules\Knowledge\Http\KnowledgeController;
 use App\Modules\Measurement\Http\MarginsController;
 use App\Modules\Measurement\Http\ProfitReportController;
 use App\Modules\Messaging\Http\WhatsAppController;
 use App\Modules\Recovery\Http\RecoveryController;
+use App\Modules\SalesAgent\Http\AgentController;
+use App\Modules\SalesAgent\Http\DraftsController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -72,6 +75,33 @@ Route::prefix('inbox')->middleware(EnsureTeamPermission::using(TeamPermission::U
     Route::get('{conversation}', [InboxController::class, 'show'])->whereNumber('conversation')->name('inbox.show');
     Route::patch('{conversation}', [InboxController::class, 'update'])->whereNumber('conversation')->name('inbox.update');
     Route::post('{conversation}/notes', [InboxController::class, 'note'])->whereNumber('conversation')->name('inbox.notes');
+    Route::post('{conversation}/takeover', [InboxController::class, 'takeover'])->whereNumber('conversation')->name('inbox.takeover');
+    Route::post('{conversation}/hand-back', [InboxController::class, 'handBack'])->whereNumber('conversation')->name('inbox.hand-back');
+    Route::get('{conversation}/ai', [DraftsController::class, 'activity'])->whereNumber('conversation')->name('inbox.ai');
+});
+
+Route::prefix('ai')->group(function () {
+    Route::middleware(EnsureTeamPermission::using(TeamPermission::ReviewAiDrafts))->group(function () {
+        Route::get('drafts', [DraftsController::class, 'index'])->name('ai.drafts.index');
+        Route::post('drafts/{draft}/approve', [DraftsController::class, 'approve'])->whereNumber('draft')->name('ai.drafts.approve');
+        Route::post('drafts/{draft}/reject', [DraftsController::class, 'reject'])->whereNumber('draft')->name('ai.drafts.reject');
+    });
+
+    Route::middleware(EnsureTeamPermission::using(TeamPermission::ManageAutonomy))->group(function () {
+        Route::get('settings', [AgentController::class, 'show'])->name('ai.settings.show');
+        Route::put('settings', [AgentController::class, 'update'])->name('ai.settings.update');
+    });
+
+    Route::post('stop', [AgentController::class, 'stop'])
+        ->middleware(EnsureTeamPermission::using(TeamPermission::UseKillSwitch))
+        ->name('ai.stop');
+});
+
+Route::prefix('knowledge')->middleware(EnsureTeamPermission::using(TeamPermission::ManageKnowledge))->group(function () {
+    Route::get('/', [KnowledgeController::class, 'index'])->name('knowledge.index');
+    Route::post('/', [KnowledgeController::class, 'store'])->name('knowledge.store');
+    Route::put('{document}', [KnowledgeController::class, 'update'])->whereNumber('document')->name('knowledge.update');
+    Route::delete('{document}', [KnowledgeController::class, 'destroy'])->whereNumber('document')->name('knowledge.destroy');
 });
 
 Route::get('billing/usage', UsageController::class)
