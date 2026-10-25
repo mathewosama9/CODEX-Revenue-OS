@@ -44,7 +44,7 @@ class MarginLookup
     }
 
     /**
-     * @param  array<string, int>  $categoryBps  category external id => basis points
+     * @param  array<string, int|null>  $categoryBps  category external id => basis points (null clears it)
      */
     public function update(?int $defaultBps, array $categoryBps, ?int $userId): void
     {
@@ -72,7 +72,8 @@ class MarginLookup
             $current[(string) $row->category_external_id] = $row->margin_bps;
         }
 
-        return $current;
+        // A cleared category is back on the default, so it isn't listed.
+        return array_filter($current, fn (?int $bps) => $bps !== null);
     }
 
     private function effective(?string $categoryExternalId, CarbonImmutable $at): ?int

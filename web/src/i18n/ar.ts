@@ -21,6 +21,7 @@ export const ar = {
         back: 'رجوع',
         apiDown: 'تعذّر الوصول إلى الخادم. تحقق من الاتصال وحاول مرة أخرى.',
         signOutFailed: 'تعذّر تسجيل الخروج. حاول مرة أخرى.',
+        close: 'إغلاق',
         menu: 'القائمة',
     },
     auth: {
@@ -187,6 +188,7 @@ export const ar = {
             existing_customer: 'عميل سابق',
         } as Record<string, string>,
         cart: 'السلة',
+        cartWorth: 'سلة بقيمة {amount}',
         expires: 'تنتهي',
         approve: 'وافق على الخصم',
         reject: 'ارفض',
@@ -205,12 +207,15 @@ export const ar = {
         incrementalRevenue: 'إيراد إضافي تقديري',
         costs: 'التكلفة',
         costsHelp: 'رسائل وخصومات وخدمات ذكاء اصطناعي.',
+        costsIncluded: 'وهي مخصومة بالفعل من الربح الإضافي أعلاه، فلا تطرحها مرة أخرى.',
         incrementalProfit: 'ربح إضافي تقديري',
         verdict: {
             helpful: 'الاسترجاع يضيف ربحًا.',
             harmful: 'الاسترجاع يقلّل الربح. راجع الخصومات أو أوقفه.',
             inconclusive: 'النتيجة غير حاسمة بعد.',
         },
+        verdictLabel: { helpful: 'مفيد', harmful: 'ضار', inconclusive: 'غير حاسم' },
+        winProbability: 'احتمال أن يكون الأثر إيجابيًا',
         needMore: 'نحتاج حوالي {n} عميل إضافي لنتيجة حاسمة.',
         noRange: 'لا توجد بيانات كافية لحساب النطاق بعد.',
         marginWarning: 'أكثر من 30% من الإيراد محسوب بهامش افتراضي. أدخل الهامش لكل فئة لنتيجة أدق.',
@@ -232,6 +237,7 @@ export const ar = {
         title: 'المحادثات',
         filter: { open: 'مفتوحة', pending: 'معلقة', closed: 'مغلقة', all: 'الكل' } as Record<string, string>,
         empty: 'لا توجد محادثات.',
+        loadMore: 'عرض المزيد',
         reason: {
             customer_message: 'رسالة من العميل',
             not_now: 'رد غير واضح',
@@ -315,6 +321,7 @@ export const ar = {
         title: 'الاستهلاك',
         subtitle: 'الاستهلاك الشهري الذي نصدر عليه الفاتورة.',
         month: 'الشهر',
+        monthFormat: 'اكتب الشهر بالصيغة 2026-10.',
         download: 'نزّل CSV',
         empty: 'لا يوجد استهلاك في هذا الشهر.',
         metric: {

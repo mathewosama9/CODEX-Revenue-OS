@@ -39,13 +39,14 @@ class MarginsController
             'default_margin_bps' => ['nullable', 'integer', 'min:0', 'max:10000'],
             'categories' => ['array', 'max:200'],
             'categories.*.external_id' => ['required', 'string', 'max:64'],
-            'categories.*.margin_bps' => ['required', 'integer', 'min:0', 'max:10000'],
+            // null clears a category's own margin (it falls back to the default).
+            'categories.*.margin_bps' => ['present', 'nullable', 'integer', 'min:0', 'max:10000'],
         ]);
 
         $byCategory = [];
 
         foreach ($validated['categories'] ?? [] as $row) {
-            $byCategory[(string) $row['external_id']] = (int) $row['margin_bps'];
+            $byCategory[(string) $row['external_id']] = $row['margin_bps'] === null ? null : (int) $row['margin_bps'];
         }
 
         $this->margins->update($validated['default_margin_bps'] ?? null, $byCategory, $request->user()?->id);

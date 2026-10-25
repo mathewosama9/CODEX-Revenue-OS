@@ -18,11 +18,23 @@ export function Field({
     return (
         <div className="flex flex-col gap-2">
             <Label htmlFor={id}>{label}</Label>
-            <Input id={id} aria-invalid={error ? true : undefined} {...props} />
+            {/* Screen readers announce the help or the error with the field (review L6). */}
+            <Input
+                id={id}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error || help ? `${id}-note` : undefined}
+                {...props}
+            />
             {help && !error && (
-                <p className="text-xs text-muted-foreground">{help}</p>
+                <p id={`${id}-note`} className="text-xs text-muted-foreground">
+                    {help}
+                </p>
             )}
-            {error && <p className="text-xs text-destructive">{error}</p>}
+            {error && (
+                <p id={`${id}-note`} className="text-xs text-destructive" role="alert">
+                    {error}
+                </p>
+            )}
         </div>
     );
 }

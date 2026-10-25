@@ -5,6 +5,7 @@ import { Pause, Power } from 'lucide-react';
 import { useState } from 'react';
 
 import { ConfirmButton } from '@/components/confirm-button';
+import { FormErrors } from '@/components/form-errors';
 import { checklistPasses, GoLiveChecklist } from '@/components/go-live-checklist';
 import { PageHeader } from '@/components/page-header';
 import { QueryState } from '@/components/query-state';
@@ -183,9 +184,10 @@ function SettingsForm({ settings, onSaved }: { settings: RecoverySettings; onSav
                 value={values[spec.key]}
                 onChange={(event) => setValues({ ...values, [spec.key]: event.target.value })}
                 aria-invalid={errors[spec.key] ? true : undefined}
+                aria-describedby={errors[spec.key] || spec.help ? `${spec.key}-note` : undefined}
             />
-            {spec.help && !errors[spec.key] && <p className="text-xs text-muted-foreground">{t.recovery[spec.help]}</p>}
-            {errors[spec.key] && <p className="text-xs text-destructive">{errors[spec.key]}</p>}
+            {spec.help && !errors[spec.key] && <p id={`${spec.key}-note`} className="text-xs text-muted-foreground">{t.recovery[spec.help]}</p>}
+            {errors[spec.key] && <p id={`${spec.key}-note`} className="text-xs text-destructive" role="alert">{errors[spec.key]}</p>}
         </div>
     );
 
@@ -225,6 +227,7 @@ function SettingsForm({ settings, onSaved }: { settings: RecoverySettings; onSav
                 )}
             </Section>
 
+            <FormErrors errors={errors} shown={discountEnabled ? [...TIMING, ...DISCOUNT].map((spec) => spec.key as string).concat('discount_code') : TIMING.map((spec) => spec.key)} />
             {failed && <p className="text-sm text-destructive">{t.common.error}</p>}
             <div className="flex items-center gap-3">
                 <Button type="submit" disabled={busy}>

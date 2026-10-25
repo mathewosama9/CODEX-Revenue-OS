@@ -2,8 +2,8 @@
 
 import { Languages, Moon, Sun } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useSyncExternalStore } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { Suspense, useSyncExternalStore } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/i18n';
@@ -25,11 +25,8 @@ const readTheme = (): Theme =>
 
 /** Language and theme switches. Both are browser preferences, not account data. */
 export function Preferences() {
-    const { locale, t } = useI18n();
-    const pathname = usePathname();
+    const { t } = useI18n();
     const theme = useSyncExternalStore(subscribe, readTheme, (): Theme => 'navy');
-    const other = locale === 'ar' ? 'en' : 'ar';
-
     const toggleTheme = () => {
         const next = theme === 'navy' ? 'light' : 'navy';
 
@@ -46,18 +43,10 @@ export function Preferences() {
 
     return (
         <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" asChild>
-                <Link
-                    href={pathname.replace(/^\/(ar|en)/, `/${other}`)}
-                    onClick={() => {
-                        document.cookie = `locale=${other};path=/;max-age=31536000;samesite=lax`;
-                    }}
-                    data-testid="switch-locale"
-                >
-                    <Languages />
-                    {t.common.otherLocale}
-                </Link>
-            </Button>
+            {/* The query string is read in the browser only; the fallback keeps the path. */}
+            <Suspense fallback={<LocaleLink />}>
+                <LocaleLinkWithQuery />
+            </Suspense>
             <Button
                 variant="ghost"
                 size="icon"
@@ -67,5 +56,31 @@ export function Preferences() {
                 {theme === 'navy' ? <Sun /> : <Moon />}
             </Button>
         </div>
+    );
+}
+
+function LocaleLinkWithQuery() {
+    // Keep ?token=…&email=… (reset link) and other parameters (review H15).
+    return <LocaleLink query={useSearchParams().toString()} />;
+}
+
+function LocaleLink({ query = '' }: { query?: string }) {
+    const { locale, t } = useI18n();
+    const pathname = usePathname();
+    const other = locale === 'ar' ? 'en' : 'ar';
+
+    return (
+        <Button variant="ghost" size="sm" asChild>
+            <Link
+                href={`${pathname.replace(/^\/(ar|en)/, `/${other}`)}${query ? `?${query}` : ''}`}
+                onClick={() => {
+                    document.cookie = `locale=${other};path=/;max-age=31536000;samesite=lax`;
+                }}
+                data-testid="switch-locale"
+            >
+                <Languages />
+                {t.common.otherLocale}
+            </Link>
+        </Button>
     );
 }

@@ -21,6 +21,7 @@ export const en: Dictionary = {
         back: 'Back',
         apiDown: "We couldn't reach the server. Check your connection and try again.",
         signOutFailed: "Sign-out didn't go through. Try again.",
+        close: 'Close',
         menu: 'Menu',
     },
     auth: {
@@ -187,6 +188,7 @@ export const en: Dictionary = {
             existing_customer: 'Existing customer',
         },
         cart: 'Cart',
+        cartWorth: 'Cart worth {amount}',
         expires: 'Expires',
         approve: 'Approve discount',
         reject: 'Reject',
@@ -205,12 +207,15 @@ export const en: Dictionary = {
         incrementalRevenue: 'Estimated incremental revenue',
         costs: 'Cost',
         costsHelp: 'Messages, discounts and AI services.',
+        costsIncluded: "They are already deducted from the incremental profit above, so don't subtract them again.",
         incrementalProfit: 'Estimated incremental profit',
         verdict: {
             helpful: 'Recovery is adding profit.',
             harmful: 'Recovery is reducing profit. Review discounts or pause it.',
             inconclusive: 'The result is not conclusive yet.',
         },
+        verdictLabel: { helpful: 'Helpful', harmful: 'Harmful', inconclusive: 'Inconclusive' },
+        winProbability: 'Probability the effect is positive',
         needMore: 'We need about {n} more customers for a conclusive result.',
         noRange: 'Not enough data to compute a range yet.',
         marginWarning: 'Over 30% of revenue uses an assumed margin. Enter margins per category for a sharper result.',
@@ -232,6 +237,7 @@ export const en: Dictionary = {
         title: 'Inbox',
         filter: { open: 'Open', pending: 'Pending', closed: 'Closed', all: 'All' },
         empty: 'No conversations.',
+        loadMore: 'Load more',
         reason: {
             customer_message: 'Customer message',
             not_now: 'Unclear reply',
@@ -315,6 +321,7 @@ export const en: Dictionary = {
         title: 'Usage',
         subtitle: 'The monthly usage we invoice on.',
         month: 'Month',
+        monthFormat: 'Enter the month as 2026-10.',
         download: 'Download CSV',
         empty: 'No usage this month.',
         metric: {

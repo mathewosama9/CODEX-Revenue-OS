@@ -5,6 +5,7 @@ namespace App\Modules\Recovery\Http;
 use App\Enums\TeamPermission;
 use App\Models\Team;
 use App\Models\User;
+use App\Modules\Commerce\Commerce;
 use App\Modules\Compliance\ActorType;
 use App\Modules\Compliance\AuditLogger;
 use App\Modules\Recovery\ActionStatus;
@@ -116,6 +117,8 @@ class RecoveryController
 
     public function approvals(): JsonResponse
     {
+        $commerce = app(Commerce::class);
+
         return response()->json(['data' => DiscountApproval::query()
             ->with('action.sequence')
             ->where('status', 'pending')
@@ -129,6 +132,8 @@ class RecoveryController
                 'percent' => $approval->percent,
                 'reason' => $approval->reason,
                 'cart_id' => $approval->action->sequence->cart_id,
+                // What the merchant recognises: the cart's value, not our internal id (review L8).
+                'cart_total_halalas' => $commerce->cart($approval->action->sequence->cart_id)?->totalHalalas,
                 'expires_at' => $approval->expires_at->toIso8601String(),
             ])->values()]);
     }

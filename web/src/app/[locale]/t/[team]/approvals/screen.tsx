@@ -1,12 +1,13 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { QueryState } from '@/components/query-state';
 import { Button } from '@/components/ui/button';
-import { useI18n } from '@/i18n';
+import { format, useI18n } from '@/i18n';
+import { formatSar } from '@/lib/money';
 import { ApiError, getData, sendData } from '@/lib/api';
 import { useTeam } from '@/lib/session';
 import { formatDateTime, formatRelative } from '@/lib/time';
@@ -18,6 +19,14 @@ export default function ApprovalsPage() {
     const { path, slug } = useTeam();
     const client = useQueryClient();
     const [notice, setNotice] = useState<string | null>(null);
+    // Re-render every 30s so "expires in N minutes" counts down (review L8).
+    const [, setTick] = useState(0);
+
+    useEffect(() => {
+        const timer = window.setInterval(() => setTick((tick) => tick + 1), 30_000);
+
+        return () => window.clearInterval(timer);
+    }, []);
     const key = [slug, 'approvals'];
 
     const approvals = useQuery({
@@ -73,7 +82,14 @@ export default function ApprovalsPage() {
                                             {t.approvals.reason[approval.reason] ?? approval.reason}
                                         </span>
                                         <span className="text-xs text-muted-foreground">
-                                            {t.approvals.cart} <span className="font-numeric">#{approval.cart_id}</span>
+                                            {/* The cart's value is what the merchant recognises; our id means nothing in Salla. */}
+                                            {approval.cart_total_halalas === null ? (
+                                                <>
+                                                    {t.approvals.cart} <span className="font-numeric">#{approval.cart_id}</span>
+                                                </>
+                                            ) : (
+                                                format(t.approvals.cartWorth, { amount: formatSar(approval.cart_total_halalas, locale) })
+                                            )}
                                             {' · '}
                                             {t.approvals.expires}{' '}
                                             <time dateTime={approval.expires_at} title={formatDateTime(approval.expires_at, locale)}>

@@ -49,3 +49,12 @@ test.describe('agent and sign-in', () => {
         void t;
     });
 });
+
+test('switching language keeps the reset link usable (review H15)', async ({ page, lang, t }) => {
+    await page.goto(`/${lang}/reset-password?token=abc123&email=owner%40demo.test`);
+    await page.getByTestId('switch-locale').click();
+
+    const other = lang === 'ar' ? 'en' : 'ar';
+    await expect(page).toHaveURL(new RegExp(`/${other}/reset-password\\?token=abc123&email=owner%40demo\\.test$`));
+    await expect(page.getByText(t.auth.resetInvalid)).toHaveCount(0);
+});

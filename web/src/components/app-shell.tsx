@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronsUpDown, LogOut, Menu, X } from 'lucide-react';
+import { ChevronsUpDown, LogOut, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -9,6 +9,7 @@ import type { ReactNode } from 'react';
 import { Lockup } from '@/components/lockup';
 import { Preferences } from '@/components/preferences';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Spinner } from '@/components/ui/spinner';
 import { useI18n } from '@/i18n';
 import { NAV } from '@/lib/nav';
@@ -113,14 +114,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <div className="sticky top-0 h-screen">{sidebar}</div>
             </aside>
 
-            {open && (
-                <div className="fixed inset-0 z-40 md:hidden">
-                    <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
-                    <aside className="absolute inset-y-0 start-0 w-72 bg-sidebar shadow-lg">
-                        {sidebar}
-                    </aside>
-                </div>
-            )}
+            {/* A real dialog on mobile: focus stays inside, Escape closes it (review L6). */}
+            <Sheet open={open} onOpenChange={setOpen}>
+                <SheetContent side="left" className="w-72 bg-sidebar p-0">
+                    <SheetTitle className="sr-only">{t.common.menu}</SheetTitle>
+                    {sidebar}
+                </SheetContent>
+            </Sheet>
 
             <div className="flex min-w-0 flex-1 flex-col">
                 <header className="flex items-center justify-between gap-2 border-b px-4 py-3 md:px-8">
@@ -131,7 +131,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         onClick={() => setOpen(!open)}
                         aria-label={t.common.menu}
                     >
-                        {open ? <X /> : <Menu />}
+                        <Menu />
                     </Button>
                     <span className="text-sm font-medium md:hidden">{team.name}</span>
                     <div className="ms-auto">

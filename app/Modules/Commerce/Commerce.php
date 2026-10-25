@@ -128,11 +128,36 @@ class Commerce
     /**
      * "+9665•••••678" — enough for staff to find the chat in their WhatsApp app.
      */
+    /**
+     * Masked phones for many customers in one query (inbox lists).
+     *
+     * @param  list<string>  $phoneHashes
+     * @return array<string, string> hash => masked phone
+     */
+    public function maskedPhones(array $phoneHashes): array
+    {
+        if ($phoneHashes === []) {
+            return [];
+        }
+
+        return Customer::query()
+            ->whereIn('phone_hash', array_values(array_unique($phoneHashes)))
+            ->whereNotNull('phone')
+            ->get(['phone_hash', 'phone'])
+            ->mapWithKeys(fn (Customer $customer) => [(string) $customer->phone_hash => self::mask((string) $customer->phone)])
+            ->all();
+    }
+
+    private static function mask(string $phone): string
+    {
+        return substr($phone, 0, 5).str_repeat('•', max(0, strlen($phone) - 8)).substr($phone, -3);
+    }
+
     public function maskedPhone(string $phoneHash): ?string
     {
         $phone = Customer::query()->where('phone_hash', $phoneHash)->whereNotNull('phone')->value('phone');
 
-        return is_string($phone) ? substr($phone, 0, 5).str_repeat('•', max(0, strlen($phone) - 8)).substr($phone, -3) : null;
+        return is_string($phone) ? self::mask($phone) : null;
     }
 
     /**

@@ -84,3 +84,28 @@ it('keeps another store conversations out of reach', function () {
 
     $this->actingAs($otherOwner)->getJson("/api/v1/teams/{$otherTeam->slug}/inbox/{$id}")->assertNotFound();
 });
+
+it('pages the queue newest first with a cursor, masking phones in one query (review L1)', function () {
+    $rows = [];
+
+    foreach (range(1, 60) as $i) {
+        $rows[] = ['tenant_id' => $this->team->id, 'subject_hash' => hash('sha256', "c{$i}"), 'status' => 'open', 'reason' => 'customer_message', 'last_message_at' => now()->subMinutes($i), 'created_at' => now(), 'updated_at' => now()];
+    }
+
+    DB::table('conversations')->insert($rows);
+    $url = "/api/v1/teams/{$this->team->slug}/inbox";
+
+    DB::enableQueryLog();
+    $first = $this->actingAs($this->agent)->getJson($url)->assertOk();
+    $customerQueries = collect(DB::getQueryLog())->filter(fn ($query) => str_contains($query['query'], 'from "customers"'))->count();
+
+    $second = $this->actingAs($this->agent)->getJson($url.'?cursor='.$first->json('meta.next_cursor'))->assertOk();
+
+    expect($first->json('data'))->toHaveCount(50)
+        ->and($customerQueries)->toBe(1)
+        ->and($second->json('data'))->toHaveCount(10)
+        ->and($second->json('meta.next_cursor'))->toBeNull()
+        ->and(array_intersect(array_column($first->json('data'), 'id'), array_column($second->json('data'), 'id')))->toBe([]);
+
+    $this->actingAs($this->agent)->getJson("{$url}?status=everything")->assertUnprocessable();
+});

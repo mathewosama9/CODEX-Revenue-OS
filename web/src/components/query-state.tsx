@@ -1,6 +1,5 @@
 'use client';
 
-import type { UseQueryResult } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -14,7 +13,14 @@ export function QueryState<T>({
     query,
     children,
 }: {
-    query: UseQueryResult<T>;
+    /** Any query (plain or infinite): only its state is read. */
+    query: {
+        isPending: boolean;
+        isError: boolean;
+        error: unknown;
+        data: T | undefined;
+        refetch: () => unknown;
+    };
     children: (data: T) => ReactNode;
 }) {
     const { t } = useI18n();
@@ -42,5 +48,5 @@ export function QueryState<T>({
         );
     }
 
-    return <>{children(query.data)}</>;
+    return <>{children(query.data as T)}</>;
 }
