@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\TeamPermission;
+use App\Http\Controllers\Api\TeamMembersController;
 use App\Http\Middleware\EnsureTeamPermission;
 use App\Modules\Billing\Http\UsageController;
 use App\Modules\Compliance\Http\DataRequestController;
@@ -15,6 +16,19 @@ use Illuminate\Support\Facades\Route;
 | Tenant-scoped API routes. Each module adds its group here.
 | The tenant context is already set; use EnsureTeamPermission per route.
 */
+
+Route::get('members', [TeamMembersController::class, 'index'])->name('members.index');
+Route::post('invitations', [TeamMembersController::class, 'invite'])
+    ->middleware(EnsureTeamPermission::using(TeamPermission::CreateInvitation))
+    ->name('team-invitations.store');
+Route::delete('invitations/{invitation}', [TeamMembersController::class, 'cancelInvitation'])
+    ->whereNumber('invitation')
+    ->middleware(EnsureTeamPermission::using(TeamPermission::CancelInvitation))
+    ->name('team-invitations.destroy');
+Route::delete('members/{user}', [TeamMembersController::class, 'remove'])
+    ->whereNumber('user')
+    ->middleware(EnsureTeamPermission::using(TeamPermission::RemoveMember))
+    ->name('members.destroy');
 
 Route::middleware(EnsureTeamPermission::using(TeamPermission::ManageMargins))->group(function () {
     Route::get('margins', [MarginsController::class, 'index'])->name('margins.index');

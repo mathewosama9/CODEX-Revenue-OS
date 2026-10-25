@@ -56,7 +56,8 @@ class TeamInvitationTest extends TestCase
 
         $mail = (new TeamInvitationNotification($invitation))->toMail($invitedUser);
 
-        $this->assertSame(route('login', ['invitation' => $invitation->code]), $mail->actionUrl);
+        // The Next.js app lists the invitation after sign-in (ADR-002).
+        $this->assertSame(config('app.frontend_url').'/'.app()->getLocale().'/login', $mail->actionUrl);
         $this->assertStringContainsString('dashboard', implode(' ', $mail->introLines));
     }
 
@@ -75,7 +76,8 @@ class TeamInvitationTest extends TestCase
 
         $mail = (new TeamInvitationNotification($invitation))->toMail((object) []);
 
-        $this->assertSame(route('login', ['invitation' => $invitation->code]), $mail->actionUrl);
+        // The Next.js app lists the invitation after sign-in (ADR-002).
+        $this->assertSame(config('app.frontend_url').'/'.app()->getLocale().'/login', $mail->actionUrl);
         $this->assertStringContainsString('log in', strtolower(implode(' ', $mail->introLines)));
     }
 

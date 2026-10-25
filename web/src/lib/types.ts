@@ -127,3 +127,8 @@ export type Conversation = ConversationSummary & {
 };
 
 export type Usage = { month: string; usage: Record<string, number> };
+
+export type Members = {
+    members: { id: number; name: string; role: 'owner' | 'agent'; email?: string }[];
+    invitations: { id: number; email: string; role: 'owner' | 'agent'; expires_at: string | null }[];
+};

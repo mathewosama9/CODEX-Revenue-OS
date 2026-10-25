@@ -10,6 +10,7 @@ use App\Http\Responses\RegisterResponse;
 use App\Http\Responses\TwoFactorLoginResponse;
 use App\Http\Responses\VerifyEmailResponse;
 use App\Models\TeamInvitation;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -46,6 +47,20 @@ class FortifyServiceProvider extends ServiceProvider
         $this->configureActions();
         $this->configureViews();
         $this->configureRateLimiting();
+        $this->configureEmailLinks();
+    }
+
+    /**
+     * Reset links open the Next.js app (ADR-002), in the language of the request.
+     */
+    private function configureEmailLinks(): void
+    {
+        ResetPassword::createUrlUsing(fn ($user, string $token) => sprintf(
+            '%s/%s/reset-password?%s',
+            config('app.frontend_url'),
+            app()->getLocale() === 'en' ? 'en' : 'ar',
+            http_build_query(['token' => $token, 'email' => $user->getEmailForPasswordReset()]),
+        ));
     }
 
     /**

@@ -6,6 +6,7 @@ import {
     Gauge,
     MessagesSquare,
     RotateCcw,
+    Settings,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -16,7 +17,8 @@ export type NavItem = {
     path: string;
     label: keyof Dictionary['nav'];
     icon: LucideIcon;
-    permission: Permission;
+    /** null = every member. */
+    permission: Permission | null;
 };
 
 // Hidden when the user lacks the permission; the API refuses anyway.
@@ -28,9 +30,10 @@ export const NAV: NavItem[] = [
     { path: '/inbox', label: 'inbox', icon: MessagesSquare, permission: 'inbox:use' },
     { path: '/usage', label: 'usage', icon: Gauge, permission: 'billing:manage' },
     { path: '/data-requests', label: 'dataRequests', icon: FileLock2, permission: 'data-requests:manage' },
+    { path: '/settings', label: 'settings', icon: Settings, permission: null },
 ];
 
 /** First screen the member is allowed to open. */
 export function homeFor(team: TeamMembership): string {
-    return NAV.find((item) => team.permissions.includes(item.permission))?.path ?? '/inbox';
+    return NAV.find((item) => item.permission !== null && team.permissions.includes(item.permission))?.path ?? '/settings';
 }

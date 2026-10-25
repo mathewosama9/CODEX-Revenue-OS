@@ -17,6 +17,9 @@ export type Permission =
     | 'billing:manage'
     | 'data-requests:manage'
     | 'inbox:use'
+    | 'invitation:create'
+    | 'invitation:cancel'
+    | 'member:remove'
     | 'ai:kill-switch'
     | (string & {});
 
@@ -31,8 +34,12 @@ export type Me = {
     id: number;
     name: string;
     email: string;
+    email_verified: boolean;
+    two_factor_enabled: boolean;
     current_team: string | null;
     teams: TeamMembership[];
+    /** Workspaces this email was invited to, not yet accepted. */
+    invitations: { code: string; team_name: string; role: 'owner' | 'agent' }[];
 };
 
 export function useMe() {
