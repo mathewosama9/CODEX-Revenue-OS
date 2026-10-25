@@ -26,12 +26,12 @@ class TeamInvitationTest extends TestCase
 
         $response = $this
             ->actingAs($owner)
-            ->post(route('teams.invitations.store', $team), [
+            ->postJson("/api/v1/teams/{$team->slug}/invitations", [
                 'email' => 'invited@example.com',
                 'role' => TeamRole::Agent->value,
             ]);
 
-        $response->assertRedirect(route('teams.edit', $team));
+        $response->assertOk();
 
         $this->assertDatabaseHas('team_invitations', [
             'team_id' => $team->id,
@@ -58,7 +58,7 @@ class TeamInvitationTest extends TestCase
 
         // The Next.js app lists the invitation after sign-in (ADR-002).
         $this->assertSame(config('app.frontend_url').'/'.app()->getLocale().'/login', $mail->actionUrl);
-        $this->assertStringContainsString('dashboard', implode(' ', $mail->introLines));
+        $this->assertStringContainsString('accept', implode(' ', $mail->introLines));
     }
 
     public function test_invitation_email_for_unknown_users_uses_login_route()
@@ -94,7 +94,7 @@ class TeamInvitationTest extends TestCase
 
         $response = $this
             ->actingAs($agent)
-            ->post(route('teams.invitations.store', $team), [
+            ->postJson("/api/v1/teams/{$team->slug}/invitations", [
                 'email' => 'invited@example.com',
                 'role' => TeamRole::Agent->value,
             ]);
@@ -115,12 +115,12 @@ class TeamInvitationTest extends TestCase
 
         $response = $this
             ->actingAs($owner)
-            ->post(route('teams.invitations.store', $team), [
+            ->postJson("/api/v1/teams/{$team->slug}/invitations", [
                 'email' => 'member@example.com',
                 'role' => TeamRole::Agent->value,
             ]);
 
-        $response->assertSessionHasErrors('email');
+        $response->assertJsonValidationErrors('email');
     }
 
     public function test_duplicate_invitations_cannot_be_created()
@@ -139,12 +139,12 @@ class TeamInvitationTest extends TestCase
 
         $response = $this
             ->actingAs($owner)
-            ->post(route('teams.invitations.store', $team), [
+            ->postJson("/api/v1/teams/{$team->slug}/invitations", [
                 'email' => 'invited@example.com',
                 'role' => TeamRole::Agent->value,
             ]);
 
-        $response->assertSessionHasErrors('email');
+        $response->assertJsonValidationErrors('email');
     }
 
     public function test_team_invitations_cannot_be_created_by_members()
@@ -158,7 +158,7 @@ class TeamInvitationTest extends TestCase
 
         $response = $this
             ->actingAs($member)
-            ->post(route('teams.invitations.store', $team), [
+            ->postJson("/api/v1/teams/{$team->slug}/invitations", [
                 'email' => 'invited@example.com',
                 'role' => TeamRole::Agent->value,
             ]);
@@ -180,9 +180,9 @@ class TeamInvitationTest extends TestCase
 
         $response = $this
             ->actingAs($owner)
-            ->delete(route('teams.invitations.destroy', [$team, $invitation]));
+            ->deleteJson("/api/v1/teams/{$team->slug}/invitations/{$invitation->id}");
 
-        $response->assertRedirect(route('teams.edit', $team));
+        $response->assertOk();
 
         $this->assertDatabaseMissing('team_invitations', [
             'id' => $invitation->id,
@@ -206,10 +206,9 @@ class TeamInvitationTest extends TestCase
 
         $response = $this
             ->actingAs($invitedUser)
-            ->post(route('invitations.accept', $invitation));
+            ->postJson("/api/v1/invitations/{$invitation->code}/accept");
 
-        $response->assertRedirect(route('dashboard'));
-        $response->assertInertiaFlash('toast', ['type' => 'success', 'message' => 'Invitation accepted.']);
+        $response->assertOk();
 
         $this->assertTrue($invitedUser->fresh()->belongsToTeam($team));
         $this->assertNotNull($invitation->fresh()->accepted_at);
@@ -231,9 +230,9 @@ class TeamInvitationTest extends TestCase
 
         $response = $this
             ->actingAs($invitedUser)
-            ->delete(route('invitations.decline', $invitation));
+            ->deleteJson("/api/v1/invitations/{$invitation->code}");
 
-        $response->assertRedirect(route('dashboard'));
+        $response->assertOk();
 
         $this->assertDatabaseMissing('team_invitations', [
             'id' => $invitation->id,
@@ -256,9 +255,9 @@ class TeamInvitationTest extends TestCase
 
         $response = $this
             ->actingAs($uninvitedUser)
-            ->delete(route('invitations.decline', $invitation));
+            ->deleteJson("/api/v1/invitations/{$invitation->code}");
 
-        $response->assertSessionHasErrors('invitation');
+        $response->assertJsonValidationErrors('invitation');
 
         $this->assertDatabaseHas('team_invitations', [
             'id' => $invitation->id,
@@ -281,9 +280,9 @@ class TeamInvitationTest extends TestCase
 
         $response = $this
             ->actingAs($invitedUser)
-            ->delete(route('invitations.decline', $invitation));
+            ->deleteJson("/api/v1/invitations/{$invitation->code}");
 
-        $response->assertSessionHasErrors('invitation');
+        $response->assertJsonValidationErrors('invitation');
 
         $this->assertDatabaseHas('team_invitations', [
             'id' => $invitation->id,
@@ -306,9 +305,9 @@ class TeamInvitationTest extends TestCase
 
         $response = $this
             ->actingAs($uninvitedUser)
-            ->post(route('invitations.accept', $invitation));
+            ->postJson("/api/v1/invitations/{$invitation->code}/accept");
 
-        $response->assertSessionHasErrors('invitation');
+        $response->assertJsonValidationErrors('invitation');
 
         $this->assertFalse($uninvitedUser->fresh()->belongsToTeam($team));
     }
@@ -329,9 +328,9 @@ class TeamInvitationTest extends TestCase
 
         $response = $this
             ->actingAs($invitedUser)
-            ->post(route('invitations.accept', $invitation));
+            ->postJson("/api/v1/invitations/{$invitation->code}/accept");
 
-        $response->assertSessionHasErrors('invitation');
+        $response->assertJsonValidationErrors('invitation');
 
         $this->assertFalse($invitedUser->fresh()->belongsToTeam($team));
     }

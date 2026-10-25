@@ -131,7 +131,7 @@ class Commerce
     /**
      * Masked phones for many customers in one query (inbox lists).
      *
-     * @param  list<string>  $phoneHashes
+     * @param  array<string>  $phoneHashes  any keys; duplicates are fine
      * @return array<string, string> hash => masked phone
      */
     public function maskedPhones(array $phoneHashes): array

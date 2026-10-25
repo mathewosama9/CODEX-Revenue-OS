@@ -9,10 +9,9 @@ class ExampleTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_returns_a_successful_response()
+    public function test_sends_visitors_to_the_merchant_app()
     {
-        $response = $this->get(route('home'));
-
-        $response->assertOk();
+        // Laravel is the API (ADR-002); the app lives on its own domain.
+        $this->get(route('home'))->assertRedirect(config('app.frontend_url'));
     }
 }

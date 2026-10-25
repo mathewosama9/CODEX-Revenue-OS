@@ -8,7 +8,8 @@ it('forbids opening another tenant workspace by its url', function () {
     $otherTeam = Team::factory()->create();
 
     $this->actingAs($user)
-        ->get("/{$otherTeam->slug}/dashboard")
+        // Every workspace route lives under the API now (ADR-002).
+        ->getJson("/api/v1/teams/{$otherTeam->slug}/members")
         ->assertForbidden();
 });
 
@@ -17,6 +18,6 @@ it('lets a member open their own workspace', function () {
     $team = $user->currentTeam ?? $user->teams()->first();
 
     $this->actingAs($user)
-        ->get("/{$team->slug}/dashboard")
+        ->getJson("/api/v1/teams/{$team->slug}/members")
         ->assertOk();
 });
