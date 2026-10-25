@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 
-import { Assignee } from '@/components/inbox';
+import { Assignee, useMembers } from '@/components/inbox';
 import { QueryState } from '@/components/query-state';
 import { Section } from '@/components/section';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,7 @@ export default function ConversationPage() {
     const client = useQueryClient();
     const key = [slug, 'conversation', id];
     const [note, setNote] = useState('');
+    const members = useMembers();
 
     const conversation = useQuery({
         queryKey: key,
@@ -116,6 +117,24 @@ export default function ConversationPage() {
                                     <span className="text-muted-foreground">
                                         {t.inbox.assignee}: <Assignee userId={data.assigned_user_id} />
                                     </span>
+                                    <label className="flex flex-col gap-1.5">
+                                        <span className="text-xs text-muted-foreground">{t.inbox.assignTo}</span>
+                                        <select
+                                            value={data.assigned_user_id ?? ''}
+                                            disabled={update.isPending || !members.data}
+                                            onChange={(event) =>
+                                                update.mutate({ assigned_user_id: event.target.value === '' ? null : Number(event.target.value) })
+                                            }
+                                            className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                                        >
+                                            <option value="">{t.inbox.unassigned}</option>
+                                            {members.data?.members.map((member) => (
+                                                <option key={member.id} value={member.id}>
+                                                    {member.id === me?.id ? `${member.name} (${t.inbox.you})` : member.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </label>
                                     {data.assigned_user_id === me?.id ? (
                                         <Button size="sm" variant="outline" disabled={update.isPending} onClick={() => update.mutate({ assigned_user_id: null })}>
                                             {t.inbox.release}
@@ -160,6 +179,7 @@ export default function ConversationPage() {
                                         onChange={(event) => setNote(event.target.value)}
                                         className="rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                                     />
+                                    {addNote.isError && <p className="text-sm text-destructive">{t.common.error}</p>}
                                     <Button type="submit" size="sm" variant="outline" disabled={addNote.isPending || note.trim() === ''}>
                                         {t.inbox.addNote}
                                     </Button>

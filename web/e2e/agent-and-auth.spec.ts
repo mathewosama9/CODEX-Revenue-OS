@@ -21,9 +21,17 @@ test.describe('agent and sign-in', () => {
         await signIn(page, lang, t, 'agent@demo.test');
         await expect(page).toHaveURL(new RegExp(`/${lang}/t/[^/]+/inbox$`));
 
+        // Inbox and their own settings, nothing else.
         const nav = page.getByRole('navigation');
-        await expect(nav.getByRole('link')).toHaveCount(1);
+        await expect(nav.getByRole('link')).toHaveCount(2);
         await expect(nav.getByRole('link', { name: t.nav.inbox })).toBeVisible();
+        await expect(nav.getByRole('link', { name: t.nav.settings })).toBeVisible();
+
+        // Teammates by name in the conversation.
+        await nav.getByRole('link', { name: t.nav.inbox }).click();
+        await page.getByTestId('inbox-list').getByRole('link').first().click();
+        await page.getByLabel(t.inbox.assignTo).selectOption({ label: 'مالك المتجر' });
+        await expect(page.getByText(`${t.inbox.assignee}: مالك المتجر`)).toBeVisible();
 
         // Typing an owner URL directly: the API refuses, the page says so.
         const team = page.url().split('/t/')[1].split('/')[0];

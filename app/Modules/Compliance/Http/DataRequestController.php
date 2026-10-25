@@ -17,7 +17,7 @@ class DataRequestController
             'type' => ['required', 'in:export,delete'],
         ]);
 
-        $phone = PhoneNumber::tryParse($validated['phone']) ?? throw ValidationException::withMessages(['phone' => 'Invalid phone number.']);
+        $phone = PhoneNumber::tryParse($validated['phone']) ?? throw ValidationException::withMessages(['phone' => __('Invalid phone number.')]);
 
         return response()->json(['data' => $validated['type'] === 'export'
             ? $requests->export($phone, $request->user()?->id)

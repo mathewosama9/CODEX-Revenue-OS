@@ -15,7 +15,8 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie', 'login', 'logout', 'register', 'forgot-password', 'reset-password', 'two-factor-challenge'],
+    // user/* = Fortify's password confirmation and two-factor setup, used by web/ settings.
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'login', 'logout', 'register', 'forgot-password', 'reset-password', 'two-factor-challenge', 'user/*', 'email/verification-notification'],
 
     'allowed_methods' => ['*'],
 
