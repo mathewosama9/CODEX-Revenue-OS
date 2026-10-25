@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 
 import { useI18n } from '@/i18n';
-import { api, ApiError, ensureCsrf, getData } from '@/lib/api';
+import { api, ApiError, ensureCsrf, getData, REDIRECTED } from '@/lib/api';
 
 /** Mirrors App\Enums\TeamPermission. */
 export type Permission =
@@ -84,10 +84,23 @@ export function useSignOut() {
     const router = useRouter();
     const href = useHref();
 
-    return async () => {
-        await api('POST', '/logout').catch(() => undefined);
+    /** Resolves false when the session may still be alive (network or server error). */
+    return async (): Promise<boolean> => {
+        try {
+            await api('POST', '/logout');
+        } catch (error) {
+            // 401/419 or a redirect: there was no live session to end anyway.
+            const ended = error instanceof ApiError && [REDIRECTED, 401, 419].includes(error.status);
+
+            if (!ended) {
+                return false;
+            }
+        }
+
         client.clear();
         router.replace(href('/login'));
+
+        return true;
     };
 }
 

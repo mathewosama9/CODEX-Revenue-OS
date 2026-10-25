@@ -2,6 +2,9 @@
 
 namespace App\Modules\Recovery\Http;
 
+use App\Enums\TeamPermission;
+use App\Models\Team;
+use App\Models\User;
 use App\Modules\Compliance\ActorType;
 use App\Modules\Compliance\AuditLogger;
 use App\Modules\Recovery\ActionStatus;
@@ -92,12 +95,23 @@ class RecoveryController
         return $this->show();
     }
 
+    /** Whether recovery is sending, for anyone holding the kill switch. */
+    public function status(): JsonResponse
+    {
+        return response()->json(['data' => ['enabled' => RecoverySettings::current()->enabled]]);
+    }
+
     /** Kill switch: stops sending now; pending steps are cancelled, not deleted (US-E14-04). */
     public function pause(Request $request, RecoveryControls $controls): JsonResponse
     {
         $controls->pause(ActorType::User, $request->user()?->id, 'merchant_kill_switch');
 
-        return $this->show();
+        // Agents may stop sending, but the settings themselves stay owner-only.
+        /** @var User $user */
+        $user = $request->user();
+        $team = Team::query()->findOrFail(RecoverySettings::current()->tenant_id);
+
+        return $user->hasTeamPermission($team, TeamPermission::ManageRecoverySettings) ? $this->show() : $this->status();
     }
 
     public function approvals(): JsonResponse

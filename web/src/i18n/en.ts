@@ -19,6 +19,8 @@ export const en: Dictionary = {
         currency: 'SAR',
         forbidden: "You don't have permission for this page.",
         back: 'Back',
+        apiDown: "We couldn't reach the server. Check your connection and try again.",
+        signOutFailed: "Sign-out didn't go through. Try again.",
         menu: 'Menu',
     },
     auth: {
@@ -53,6 +55,9 @@ export const en: Dictionary = {
         useRecovery: 'Use a recovery code',
         useCode: 'Use your authenticator app',
         verify: 'Verify',
+        sessionExpired: 'Your session ended. Sign in again to continue.',
+        challengeExpired: 'The verification step expired. Sign in again.',
+        tooManyAttempts: 'Too many attempts. Wait a minute, then try again.',
         backToLogin: 'Back to sign in',
     },
     teams: {
@@ -98,9 +103,11 @@ export const en: Dictionary = {
                 UNKNOWN: 'Unknown',
             },
             pinTitle: 'Number PIN',
-            pinHelp: '6 digits that protect the number registration. Keep it somewhere safe.',
+            pinHelp: "Choose 6 digits to protect the number's registration, or enter its existing two-step PIN. Keep it somewhere safe.",
             finish: 'Finish connecting',
             notConfigured: "WhatsApp connection isn't enabled in this environment yet (the Meta app isn't configured).",
+            noNumber: 'You picked an account without a number. Start again and choose the phone number.',
+            sdkBlocked: "Meta's window couldn't load. Turn off ad blockers for this page or try another browser.",
             cancelled: "The connection didn't complete. Try again.",
         },
         templates: {

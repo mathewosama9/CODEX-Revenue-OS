@@ -10,7 +10,7 @@ import { Field } from '@/components/field';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/i18n';
-import { api } from '@/lib/api';
+import { api, ApiError, REDIRECTED } from '@/lib/api';
 import { afterSignIn, useHref } from '@/lib/session';
 import { useSubmit } from '@/lib/use-form';
 
@@ -19,7 +19,7 @@ export default function TwoFactorPage() {
     const href = useHref();
     const router = useRouter();
     const client = useQueryClient();
-    const { busy, errors, failed, run } = useSubmit();
+    const { busy, errors, failed, failedStatus, run } = useSubmit();
     const [recovery, setRecovery] = useState(false);
     const [value, setValue] = useState('');
     const field = recovery ? 'recovery_code' : 'code';
@@ -28,7 +28,19 @@ export default function TwoFactorPage() {
         event.preventDefault();
 
         void run(async () => {
-            await api('POST', '/two-factor-challenge', { [field]: value.trim() });
+            try {
+                await api('POST', '/two-factor-challenge', { [field]: value.trim() });
+            } catch (error) {
+                // No pending sign-in any more (it expired): Fortify redirects (review L9).
+                if (error instanceof ApiError && error.status === REDIRECTED) {
+                    router.replace(href('/login?expired=challenge'));
+
+                    return;
+                }
+
+                throw error;
+            }
+
             await afterSignIn(client);
             router.replace(href(''));
         });
@@ -55,7 +67,7 @@ export default function TwoFactorPage() {
                 />
                 {failed && (
                     <Alert variant="destructive">
-                        <AlertDescription>{t.common.error}</AlertDescription>
+                        <AlertDescription>{failedStatus === 429 ? t.auth.tooManyAttempts : t.common.error}</AlertDescription>
                     </Alert>
                 )}
                 <Button type="submit" disabled={busy || value.trim() === ''}>

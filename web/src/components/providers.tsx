@@ -1,11 +1,12 @@
 'use client';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { usePathname, useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { I18nProvider } from '@/i18n';
-import { ApiError } from '@/lib/api';
+import { ApiError, SESSION_EXPIRED_EVENT } from '@/lib/api';
 import type { Locale } from '@/lib/money';
 
 export function Providers({
@@ -32,7 +33,43 @@ export function Providers({
 
     return (
         <I18nProvider locale={locale}>
-            <QueryClientProvider client={client}>{children}</QueryClientProvider>
+            <QueryClientProvider client={client}>
+                {/* Reads the URL, so it renders in the browser only. */}
+                <Suspense>
+                    <SessionWatcher locale={locale} />
+                </Suspense>
+                {children}
+            </QueryClientProvider>
         </I18nProvider>
     );
+}
+
+const AUTH_PAGES = /^\/(ar|en)\/(login|register|forgot-password|reset-password|two-factor)/;
+
+/**
+ * The session can end mid-use (lifetime, sign-out in another tab). Any API
+ * call that finds it gone sends the user to sign in, with a notice, instead
+ * of a "try again" that can never succeed (review B8).
+ */
+function SessionWatcher({ locale }: { locale: Locale }) {
+    const client = useQueryClient();
+    const router = useRouter();
+    const pathname = usePathname();
+
+    useEffect(() => {
+        const expired = () => {
+            if (AUTH_PAGES.test(pathname)) {
+                return;
+            }
+
+            client.clear();
+            router.replace(`/${locale}/login?expired=1`);
+        };
+
+        window.addEventListener(SESSION_EXPIRED_EVENT, expired);
+
+        return () => window.removeEventListener(SESSION_EXPIRED_EVENT, expired);
+    }, [client, router, pathname, locale]);
+
+    return null;
 }

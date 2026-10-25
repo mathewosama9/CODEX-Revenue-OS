@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\TeamRole;
 use App\Models\Team;
+use App\Models\User;
 use App\Modules\Compliance\Consent\ConsentGate;
 use App\Modules\Compliance\Consent\ConsentRevoked;
 use App\Modules\Compliance\Consent\ConsentSource;
@@ -245,4 +247,26 @@ it('never loses an opt-out when processing fails part-way (review B7)', function
 
     expect(asTeam(fn () => app(ConsentGate::class)->mayMessage($this->customer)))->toBeFalse()
         ->and(DB::table('messages')->where('wamid', 'wamid.in.b7')->count())->toBe(1);
+});
+
+it('answers signup failures with a reason the merchant can act on (review B9)', function () {
+    $owner = User::factory()->create();
+    $this->team->members()->attach($owner, ['role' => TeamRole::Owner->value]);
+    $url = "/api/v1/teams/{$this->team->slug}/whatsapp/embedded-signup";
+    $payload = ['code' => 'expired', 'waba_id' => 'waba-new', 'phone_number_id' => 'pn-new', 'pin' => '123456'];
+
+    Http::fake(['graph.facebook.com/*/oauth/access_token*' => Http::response(['error' => ['message' => 'This authorization code has expired.', 'code' => 100]], 400)]);
+
+    $this->actingAs($owner)->postJson($url, $payload, ['Accept-Language' => 'ar'])
+        ->assertUnprocessable()
+        ->assertJsonPath('reason', 'code_rejected')
+        ->assertJsonPath('errors.signup.0', __('whatsapp.code_rejected', locale: 'ar'));
+
+    // A WABA already bound to another workspace is a conflict, not a server error.
+    $other = Team::factory()->create();
+    TenantRoute::bind(TenantRoute::META, 'waba-taken', $other->id);
+
+    $this->actingAs($owner)->postJson($url, ['waba_id' => 'waba-taken'] + $payload)
+        ->assertStatus(409)
+        ->assertJsonPath('reason', 'already_connected');
 });

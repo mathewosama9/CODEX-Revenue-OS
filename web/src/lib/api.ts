@@ -43,11 +43,20 @@ export function ensureCsrf(force = false): Promise<void> {
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
-export async function request(
-    method: Method,
-    path: string,
-    body?: unknown,
-): Promise<Response> {
+/** Fortify's guest and auth routes: a 401 there is an answer, not an expired session. */
+const AUTH_PATHS = ['/login', '/logout', '/register', '/forgot-password', '/reset-password', '/two-factor-challenge', '/api/v1/me'];
+
+/** Fired when the session is gone mid-use; the app sends the user to sign in (review B8). */
+export const SESSION_EXPIRED_EVENT = 'codex:session-expired';
+
+/**
+ * Status 0 means Laravel answered with a redirect (we never follow one): on a
+ * guest route that is "already signed in", on the 2FA route "the pending
+ * sign-in expired" (review H9).
+ */
+export const REDIRECTED = 0;
+
+async function send(method: Method, path: string, body?: unknown): Promise<Response> {
     if (method !== 'GET') {
         await ensureCsrf();
     }
@@ -72,15 +81,39 @@ export async function request(
         headers['Content-Type'] = 'application/json';
     }
 
-    const response = await fetch(`${API_URL}${path}`, {
+    return fetch(`${API_URL}${path}`, {
         method,
         headers,
         credentials: 'include',
+        // A redirect from the API would land on a page CORS doesn't cover.
+        redirect: 'manual',
         body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     });
+}
+
+export async function request(
+    method: Method,
+    path: string,
+    body?: unknown,
+): Promise<Response> {
+    let response = await send(method, path, body);
+
+    // 419: the XSRF token went stale (Laravel rotated it). Fetch a fresh one once.
+    if (response.status === 419) {
+        await ensureCsrf(true);
+        response = await send(method, path, body);
+    }
+
+    if (response.type === 'opaqueredirect') {
+        throw new ApiError(REDIRECTED, 'redirected');
+    }
 
     if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
+
+        if ((response.status === 401 || response.status === 419) && !AUTH_PATHS.includes(path.split('?')[0])) {
+            window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+        }
 
         throw new ApiError(
             response.status,
