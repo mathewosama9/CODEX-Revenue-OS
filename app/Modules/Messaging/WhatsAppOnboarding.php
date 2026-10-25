@@ -9,7 +9,7 @@ use App\Modules\Messaging\Models\WhatsAppAccount;
 use App\Modules\Messaging\Models\WhatsAppNumber;
 use App\Shared\Integrations\TenantRoute;
 use App\Shared\Tenancy\TenantContext;
-use RuntimeException;
+use Throwable;
 
 /**
  * Embedded Signup v4 completion (US-E03-01): the WABA and portfolio belong to
@@ -30,19 +30,19 @@ class WhatsAppOnboarding
         $region = config('services.meta.data_localization_region');
 
         if (! is_string($region) || $region === '') {
-            throw new RuntimeException('ADR-006: set META_DATA_LOCALIZATION_REGION before registering the first number.');
+            throw new WhatsAppSignupFailed(WhatsAppSignupFailed::REGION_NOT_SET, 'ADR-006: set META_DATA_LOCALIZATION_REGION before registering the first number.');
         }
 
         $existing = TenantRoute::tenantFor(TenantRoute::META, $wabaId);
 
         if ($existing !== null && $existing !== $this->tenants->require()) {
-            throw new RuntimeException('This WhatsApp Business Account is already connected to another workspace.');
+            throw new WhatsAppSignupFailed(WhatsAppSignupFailed::ALREADY_CONNECTED, 'This WhatsApp Business Account is already connected to another workspace.');
         }
 
-        $token = $this->meta->exchangeCode($code);
-        $this->meta->subscribeApp($token, $wabaId);
-        $this->meta->registerNumber($token, $phoneNumberId, $pin, $region);
-        $info = $this->meta->number($token, $phoneNumberId);
+        $token = $this->step(WhatsAppSignupFailed::CODE_REJECTED, fn () => $this->meta->exchangeCode($code));
+        $this->step(WhatsAppSignupFailed::META_ERROR, fn () => $this->meta->subscribeApp($token, $wabaId));
+        $this->step(WhatsAppSignupFailed::REGISTRATION_FAILED, fn () => $this->meta->registerNumber($token, $phoneNumberId, $pin, $region));
+        $info = $this->step(WhatsAppSignupFailed::META_ERROR, fn () => $this->meta->number($token, $phoneNumberId));
 
         $account = WhatsAppAccount::query()->updateOrCreate(['waba_id' => $wabaId], [
             'access_token' => $token,
@@ -63,5 +63,25 @@ class WhatsAppOnboarding
         $this->templates->sync($account);
 
         return $number;
+    }
+
+    /**
+     * Runs one call to Meta and names the step that failed. Meta's own error
+     * text stays in the exception chain for our logs, never in the response.
+     *
+     * @template T
+     *
+     * @param  callable(): T  $call
+     * @return T
+     */
+    private function step(string $reason, callable $call): mixed
+    {
+        try {
+            return $call();
+        } catch (WhatsAppSignupFailed $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            throw new WhatsAppSignupFailed($reason, 'Embedded Signup failed at: '.$reason, $exception);
+        }
     }
 }

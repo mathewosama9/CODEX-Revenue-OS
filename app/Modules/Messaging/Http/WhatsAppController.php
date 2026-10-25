@@ -7,8 +7,10 @@ use App\Modules\Messaging\Models\WhatsAppAccount;
 use App\Modules\Messaging\Models\WhatsAppNumber;
 use App\Modules\Messaging\TemplateRegistry;
 use App\Modules\Messaging\WhatsAppOnboarding;
+use App\Modules\Messaging\WhatsAppSignupFailed;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class WhatsAppController
 {
@@ -43,7 +45,19 @@ class WhatsAppController
             'pin' => ['required', 'digits:6'],
         ]);
 
-        $onboarding->complete($validated['code'], $validated['waba_id'], $validated['phone_number_id'], $validated['pin'], $request->user()?->id);
+        try {
+            $onboarding->complete($validated['code'], $validated['waba_id'], $validated['phone_number_id'], $validated['pin'], $request->user()?->id);
+        } catch (WhatsAppSignupFailed $exception) {
+            // Reason and class only: Meta's exception can carry the app secret in its URL (review H2).
+            Log::warning('WhatsApp Embedded Signup failed.', ['reason' => $exception->reason, 'cause' => $exception->getPrevious() === null ? null : $exception->getPrevious()::class]);
+
+            // 422 with a stable reason the app translates, instead of a bare 500 (review B9).
+            return response()->json([
+                'message' => __('whatsapp.'.$exception->reason),
+                'reason' => $exception->reason,
+                'errors' => ['signup' => [__('whatsapp.'.$exception->reason)]],
+            ], $exception->reason === WhatsAppSignupFailed::ALREADY_CONNECTED ? 409 : 422);
+        }
 
         return $this->show();
     }

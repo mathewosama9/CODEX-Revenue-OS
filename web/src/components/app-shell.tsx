@@ -21,7 +21,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
     const signOut = useSignOut();
-    const { error } = useMe();
+    const { error, refetch } = useMe();
+    const [signOutFailed, setSignOutFailed] = useState(false);
     const { me, team, slug, can } = useTeam();
     const [open, setOpen] = useState(false);
 
@@ -33,6 +34,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             router.replace(href(''));
         }
     }, [error, me, team, router, href]);
+
+    // API down, CORS misconfigured, server error: say so, never spin forever (review H8).
+    if (error && !isUnauthenticated(error)) {
+        return <ApiDown onRetry={() => void refetch()} />;
+    }
 
     if (!team) {
         return (
@@ -88,10 +94,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span className="truncate px-3 text-xs text-muted-foreground" dir="ltr">
                     {me?.email}
                 </span>
-                <Button variant="ghost" className="justify-start" onClick={signOut}>
+                <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={async () => setSignOutFailed(!(await signOut()))}
+                >
                     <LogOut className="rtl:-scale-x-100" />
                     {t.common.signOut}
                 </Button>
+                {signOutFailed && <p className="px-3 text-xs text-destructive">{t.common.signOutFailed}</p>}
             </div>
         </div>
     );
@@ -131,6 +142,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                     {children}
                 </main>
             </div>
+        </div>
+    );
+}
+
+export function ApiDown({ onRetry }: { onRetry: () => void }) {
+    const { t } = useI18n();
+
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center" role="alert">
+            <p className="max-w-sm text-sm text-muted-foreground">{t.common.apiDown}</p>
+            <Button variant="outline" onClick={onRetry}>
+                {t.common.retry}
+            </Button>
         </div>
     );
 }

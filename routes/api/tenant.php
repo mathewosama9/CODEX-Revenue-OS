@@ -48,6 +48,11 @@ Route::prefix('recovery')->group(function () {
         Route::get('/', [RecoveryController::class, 'show'])->name('recovery.show');
         Route::put('/', [RecoveryController::class, 'update'])->name('recovery.update');
         Route::post('enable', [RecoveryController::class, 'enable'])->name('recovery.enable');
+    });
+
+    // The kill switch belongs to everyone who may stop the AI, agents included (US-E14-04, review H7).
+    Route::middleware(EnsureTeamPermission::using(TeamPermission::UseKillSwitch))->group(function () {
+        Route::get('status', [RecoveryController::class, 'status'])->name('recovery.status');
         Route::post('pause', [RecoveryController::class, 'pause'])->name('recovery.pause');
     });
 
