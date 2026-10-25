@@ -68,6 +68,70 @@ class ConsentGate
     }
 
     /**
+     * Grants for a merchant import, in bulk. A customer whose latest record is a
+     * revocation (they said stop, or asked for deletion) is never re-granted by
+     * an import: only the customer can opt back in.
+     *
+     * @param  list<PhoneNumber>  $phones
+     * @param  array<string, mixed>  $evidence  Shared by every row: import id, text hash, attestation. No PII.
+     * @return array{granted: int, already_granted: int, skipped_opted_out: int}
+     */
+    public function importGrants(array $phones, array $evidence): array
+    {
+        if ($evidence === []) {
+            throw new InvalidArgumentException('A consent import needs documented evidence.');
+        }
+
+        $hashes = array_values(array_unique(array_map(fn (PhoneNumber $phone) => $this->subjectHash($phone), $phones)));
+        $counts = ['granted' => 0, 'already_granted' => 0, 'skipped_opted_out' => 0];
+
+        foreach (array_chunk($hashes, 1000) as $chunk) {
+            $latest = ConsentRecord::query()
+                ->whereIn('subject_hash', $chunk)
+                ->where('channel', ConsentChannel::WhatsApp)
+                ->where('purpose', ConsentPurpose::Marketing)
+                ->orderBy('subject_hash')
+                ->orderByDesc('id')
+                ->get(['subject_hash', 'status'])
+                ->unique('subject_hash')
+                ->mapWithKeys(fn (ConsentRecord $record) => [$record->subject_hash => $record->status]);
+
+            $rows = [];
+
+            foreach ($chunk as $hash) {
+                $status = $latest[$hash] ?? null;
+
+                if ($status === ConsentStatus::Revoked) {
+                    $counts['skipped_opted_out']++;
+                } elseif ($status === ConsentStatus::Granted) {
+                    $counts['already_granted']++;
+                } else {
+                    $rows[] = [
+                        'tenant_id' => $this->tenants->require(),
+                        'subject_hash' => $hash,
+                        'channel' => ConsentChannel::WhatsApp->value,
+                        'purpose' => ConsentPurpose::Marketing->value,
+                        'status' => ConsentStatus::Granted->value,
+                        'source' => ConsentSource::MerchantImport->value,
+                        'evidence' => json_encode($evidence, JSON_THROW_ON_ERROR),
+                    ];
+                }
+            }
+
+            if ($rows !== []) {
+                ConsentRecord::query()->insert($rows);
+                $counts['granted'] += count($rows);
+            }
+        }
+
+        $this->audit->record('consent.imported', ActorType::User, $evidence['attested_by'] ?? null, context: $counts + [
+            'import' => $evidence['import'] ?? null,
+        ]);
+
+        return $counts;
+    }
+
+    /**
      * @param  array<string, mixed>  $evidence
      */
     public function revoke(
