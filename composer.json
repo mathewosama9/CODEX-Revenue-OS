@@ -11,13 +11,11 @@
     "require": {
         "php": "^8.3",
         "filament/filament": "^5.10",
-        "inertiajs/inertia-laravel": "^3.0",
         "laravel/chisel": "^0.1.0",
         "laravel/fortify": "^1.37.2",
         "laravel/framework": "^13.17",
         "laravel/sanctum": "^4.0",
-        "laravel/tinker": "^3.0",
-        "laravel/wayfinder": "^0.1.14"
+        "laravel/tinker": "^3.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",
@@ -50,9 +48,7 @@
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php artisan key:generate",
             "@php artisan migrate --force",
-            "npm install",
-            "npm --prefix web install",
-            "npm run build"
+            "npm --prefix web install"
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
@@ -66,8 +62,6 @@
         ],
         "ci:check": [
             "Composer\\Config::disableProcessTimeout",
-            "npm run check",
-            "npm run types:check",
             "npm run rtl:check",
             "npm run web:check",
             "@test"

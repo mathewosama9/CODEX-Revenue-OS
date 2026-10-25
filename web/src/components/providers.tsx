@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { I18nProvider } from '@/i18n';
@@ -55,10 +55,17 @@ function SessionWatcher({ locale }: { locale: Locale }) {
     const client = useQueryClient();
     const router = useRouter();
     const pathname = usePathname();
+    // Read through a ref so the listener is added once: re-adding it on every
+    // navigation left a gap where a 401 could arrive unheard.
+    const current = useRef(pathname);
+
+    useEffect(() => {
+        current.current = pathname;
+    }, [pathname]);
 
     useEffect(() => {
         const expired = () => {
-            if (AUTH_PAGES.test(pathname)) {
+            if (AUTH_PAGES.test(current.current)) {
                 return;
             }
 
@@ -69,7 +76,7 @@ function SessionWatcher({ locale }: { locale: Locale }) {
         window.addEventListener(SESSION_EXPIRED_EVENT, expired);
 
         return () => window.removeEventListener(SESSION_EXPIRED_EVENT, expired);
-    }, [client, router, pathname, locale]);
+    }, [client, router, locale]);
 
     return null;
 }

@@ -4,8 +4,11 @@ namespace App\Modules\Messaging\Meta;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
+use Throwable;
 
 /**
  * WhatsApp Cloud API + Marketing Messages API as a Tech Provider.
@@ -23,15 +26,27 @@ class MetaGraphClient
     ) {}
 
     /** Embedded Signup v4: swap the short-lived code for a business token. */
+    /**
+     * Meta takes the app secret in the query string here. A timeout or an HTTP
+     * error would carry that URL into the exception and from there into logs
+     * and error trackers, so nothing from the underlying exception is kept
+     * except its class and Meta's error code (review H2).
+     */
     public function exchangeCode(string $code): string
     {
-        $response = Http::baseUrl($this->graphBase)->timeout(20)->get('oauth/access_token', [
-            'client_id' => $this->appId,
-            'client_secret' => $this->appSecret,
-            'code' => $code,
-        ]);
+        try {
+            $response = Http::baseUrl($this->graphBase)->timeout(20)->get('oauth/access_token', [
+                'client_id' => $this->appId,
+                'client_secret' => $this->appSecret,
+                'code' => $code,
+            ]);
 
-        return (string) $this->decode($response)['access_token'];
+            return (string) $this->decode($response)['access_token'];
+        } catch (Throwable $exception) {
+            $metaCode = $exception instanceof RequestException ? data_get($exception->response->json(), 'error.code') : null;
+
+            throw new RuntimeException(sprintf('Meta code exchange failed (%s%s).', $exception::class, $metaCode === null ? '' : ", code {$metaCode}"));
+        }
     }
 
     public function subscribeApp(string $token, string $wabaId): void

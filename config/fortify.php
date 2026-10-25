@@ -73,7 +73,8 @@ return [
     |
     */
 
-    'home' => '/dashboard',
+    // The Next.js app (ADR-002): Laravel serves no pages of its own.
+    'home' => rtrim((string) env('FRONTEND_URL', 'http://localhost:3001'), '/'),
 
     /*
     |--------------------------------------------------------------------------
@@ -131,7 +132,8 @@ return [
     |
     */
 
-    'views' => true,
+    // API only: the Next.js app renders every auth screen (ADR-002).
+    'views' => false,
 
     /*
     |--------------------------------------------------------------------------
@@ -169,9 +171,7 @@ return [
             'confirmPassword' => true,
             // 'window' => 0
         ]),
-        Features::passkeys([
-            'confirmPassword' => true,
-        ]),
+        // Passkeys had UI only in the removed Inertia app; back when the Next.js app supports them.
     ],
 
 ];

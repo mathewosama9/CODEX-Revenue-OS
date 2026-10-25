@@ -12,20 +12,14 @@ type RangeEstimateProps = {
     /** Probability (0–1) that the true effect is positive. */
     winProbability: number;
     verdict: EstimateVerdict;
-    /** Shown when the sample is small, e.g. "محتاجين ~2,400 سلة كمان". */
+    /** Shown when the sample is small, e.g. "نحتاج حوالي 2,400 عميل إضافي". */
     explanation?: string;
+    /** From the dictionary, so the copy stays in one place (review L5). */
+    verdictLabel: string;
+    probabilityLabel: string;
     locale?: Locale;
     /** Only the one money figure of a screen is gold; others stay ink when helpful. */
     isMoney?: boolean;
-};
-
-const VERDICT_LABEL: Record<Locale, Record<EstimateVerdict, string>> = {
-    ar: { helpful: 'مفيد', harmful: 'ضار', inconclusive: 'غير حاسم' },
-    en: {
-        helpful: 'Helpful',
-        harmful: 'Harmful',
-        inconclusive: 'Inconclusive',
-    },
 };
 
 // An incremental figure is never shown without its interval (US-E07-01).
@@ -37,6 +31,8 @@ export function RangeEstimate({
     winProbability,
     verdict,
     explanation,
+    verdictLabel,
+    probabilityLabel,
     locale = 'ar',
     isMoney = true,
 }: RangeEstimateProps) {
@@ -70,12 +66,10 @@ export function RangeEstimate({
                             'border-muted-foreground text-muted-foreground',
                     )}
                 >
-                    {VERDICT_LABEL[locale][verdict]}
+                    {verdictLabel}
                 </span>
                 <span className="text-muted-foreground">
-                    {locale === 'ar'
-                        ? 'احتمال إن الأثر موجب'
-                        : 'Probability the effect is positive'}{' '}
+                    {probabilityLabel}{' '}
                     <span dir="ltr" className="font-numeric tabular-nums">
                         {Math.round(winProbability * 100)}%
                     </span>

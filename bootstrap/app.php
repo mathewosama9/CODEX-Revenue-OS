@@ -1,13 +1,9 @@
 <?php
 
-use App\Http\Middleware\HandleAppearance;
-use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetRequestLocale;
-use App\Http\Middleware\SetTeamUrlDefaults;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -22,20 +18,14 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
-
         // Error messages in the merchant's language (Accept-Language from web/).
         $middleware->append(SetRequestLocale::class);
 
         // Sanctum SPA auth for the Next.js frontend (ADR-002).
         $middleware->statefulApi();
 
-        $middleware->web(append: [
-            HandleAppearance::class,
-            HandleInertiaRequests::class,
-            AddLinkHeadersForPreloadedAssets::class,
-            SetTeamUrlDefaults::class,
-        ]);
+        // Laravel renders no merchant pages: a signed-out browser goes to the app's sign-in.
+        $middleware->redirectGuestsTo(fn () => config('app.frontend_url').'/ar/login');
     })
     ->withCommands([__DIR__.'/../app/Modules/Platform/Console'])
     ->withExceptions(function (Exceptions $exceptions): void {

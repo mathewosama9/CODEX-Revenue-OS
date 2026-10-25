@@ -4,15 +4,11 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
-const SOURCE_DIRS = ['resources/js', 'resources/views', 'web/src', 'web/e2e'];
-const EXTENSIONS = /\.(tsx?|jsx?|blade\.php)$/;
+// The merchant app (ADR-002). The old Inertia app under resources/js is gone.
+const SOURCE_DIRS = ['web/src', 'web/e2e'];
+const EXTENSIONS = /\.(tsx?|jsx?)$/;
 
-// Generated route helpers never contain classes.
-const IGNORED = [
-    'resources/js/actions',
-    'resources/js/routes',
-    'resources/js/wayfinder',
-];
+const IGNORED = [];
 
 const PHYSICAL = new RegExp(
     String.raw`(?<![\w-])-?(` +

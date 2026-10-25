@@ -253,6 +253,9 @@ it('never puts a discount in message 1, and asks the owner for an existing custo
 
     $approvalId = DB::table('discount_approvals')->value('id');
     $this->actingAs($this->owner)
+        ->getJson("/api/v1/teams/{$this->team->slug}/recovery/approvals")
+        ->assertJsonPath('data.0.cart_total_halalas', 42_000);
+    $this->actingAs($this->owner)
         ->postJson("/api/v1/teams/{$this->team->slug}/recovery/approvals/{$approvalId}", ['decision' => 'approve'])
         ->assertOk();
 
@@ -467,4 +470,32 @@ it('lets an agent stop sending, without seeing the settings (review H7)', functi
 
     expect(DB::table('scheduled_actions')->value('status'))->toBe('cancelled')
         ->and(DB::table('recovery_settings')->value('enabled'))->toBeFalse();
+});
+
+it('fails an action that keeps crashing its worker instead of re-running it forever (review H1)', function () {
+    abandonCart();
+    DB::table('scheduled_actions')->update(['status' => 'claimed', 'claimed_at' => now()->subMinutes(20), 'reclaims' => 2]);
+
+    runDue();
+
+    $action = DB::table('scheduled_actions')->first();
+
+    expect($action->status)->toBe('failed')
+        ->and($action->last_error)->toBe('stuck_after_reclaims')
+        ->and($this->sent)->toBe([])
+        ->and(DB::table('audit_events')->where('action', 'recovery.action_failed')->exists())->toBeTrue();
+});
+
+it('counts a reclaim without touching the send attempt counter (review H1)', function () {
+    abandonCart();
+    $this->travel(61)->minutes();
+    DB::table('scheduled_actions')->update(['status' => 'claimed', 'claimed_at' => now()->subMinutes(20)]);
+
+    runDue();
+
+    $action = DB::table('scheduled_actions')->where('step', 1)->first();
+
+    expect($action->reclaims)->toBe(1)
+        ->and($action->attempts)->toBe(0)
+        ->and($action->status)->toBe('done');
 });

@@ -5,16 +5,19 @@ use App\Modules\Commerce\Events\CartAbandoned;
 use App\Modules\Commerce\Events\CartPurchased;
 use App\Modules\Commerce\Events\OrderPlaced;
 use App\Modules\Commerce\Events\StoreDisconnected;
+use App\Modules\Commerce\Jobs\BackfillStore;
 use App\Modules\Commerce\Jobs\ReconcileStore;
 use App\Modules\Commerce\Jobs\RefreshStoreToken;
 use App\Shared\Integrations\TenantRoute;
 use App\Shared\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -246,4 +249,43 @@ it('counts carts found by polling as reconciliation gaps', function () {
         ->and(DB::table('store_connections')->value('reconciliation_gap_count'))->toBe(1)
         ->and(DB::table('carts')->where('external_id', '2')->value('discovered_by'))->toBe('reconciliation');
     Event::assertDispatchedTimes(CartAbandoned::class, 2);
+});
+
+/** A 12-page product list: each call answers the next page with one product. */
+function pagedProducts(): void
+{
+    $GLOBALS['productPage'] = 0;
+    overrideSalla(['api.salla.dev/admin/v2/products*' => function () {
+        $page = ++$GLOBALS['productPage'];
+
+        return Http::response(['data' => [['id' => "p{$page}", 'name' => "منتج {$page}"]], 'pagination' => ['totalPages' => 12]]);
+    }]);
+}
+
+it('backfills a large store in short jobs that resume from their page (review H3)', function () {
+    $tenant = installStore();
+    pagedProducts();
+    Queue::fake();
+
+    // Run one job by hand (the queue is faked, so its follow-up is only recorded).
+    asTenant($tenant, fn () => app()->call([new BackfillStore($tenant, 'products', 1), 'handle']));
+
+    expect(asTenant($tenant, fn () => DB::table('products')->count()))->toBe(BackfillStore::PAGES_PER_JOB);
+    Queue::assertPushed(BackfillStore::class, fn (BackfillStore $job) => $job->step === 'products' && $job->page === BackfillStore::PAGES_PER_JOB + 1);
+});
+
+it('finishes the whole backfill chain and marks the store reconciled (review H3)', function () {
+    $tenant = installStore();
+    DB::table('store_connections')->update(['last_reconciled_at' => null]);
+    pagedProducts();
+
+    Bus::dispatchSync(new BackfillStore($tenant));
+
+    expect(DB::table('products')->where('tenant_id', $tenant)->count())->toBe(12)
+        ->and(DB::table('store_connections')->value('last_reconciled_at'))->not->toBeNull();
+});
+
+it('retries reconciliation after a Salla rate limit instead of failing the cycle (review H4)', function () {
+    expect((new ReconcileStore(1))->tries)->toBeGreaterThan(1)
+        ->and((new ReconcileStore(1))->timeout)->toBeLessThan((int) config('queue.connections.database.retry_after'));
 });

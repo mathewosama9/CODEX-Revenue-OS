@@ -39,7 +39,14 @@ class TenantHealth extends Page implements HasTable
     public function table(Table $table): Table
     {
         $health = app(PlatformHealth::class);
-        $cell = fn (string $key) => fn (Team $record) => $health->forTenant($record->id)[$key];
+
+        // One health read per merchant row, shared by every column: each read
+        // is about 10 queries, and there are 9 columns (review H14).
+        $rows = [];
+        $row = function (int $tenantId) use ($health, &$rows): array {
+            return $rows[$tenantId] ??= $health->forTenant($tenantId);
+        };
+        $cell = fn (string $key) => fn (Team $record) => $row($record->id)[$key];
 
         return $table
             ->query(Team::query()->where('is_personal', false))
@@ -56,7 +63,7 @@ class TenantHealth extends Page implements HasTable
                 TextColumn::make('last_webhook_at')->label('آخر webhook')->state($cell('last_webhook_at'))->since(),
                 TextColumn::make('reconciliation_gaps')->label('فجوات')->state($cell('reconciliation_gaps')),
                 TextColumn::make('whatsapp_quality')->label('جودة الرقم')->state($cell('whatsapp_quality')),
-                TextColumn::make('recovery_enabled')->label('الاسترجاع')->state(fn (Team $record) => $health->forTenant($record->id)['recovery_enabled'] ? 'شغال' : 'متوقف'),
+                TextColumn::make('recovery_enabled')->label('الاسترجاع')->state(fn (Team $record) => $row($record->id)['recovery_enabled'] ? 'شغال' : 'متوقف'),
                 TextColumn::make('failed_actions')->label('فشل 24س')->state($cell('failed_actions')),
             ])
             ->recordActions([

@@ -11,6 +11,7 @@ use App\Modules\Messaging\Events\InboundMessageReceived;
 use App\Modules\Messaging\Events\MessageDelivered;
 use App\Modules\Messaging\Events\NumberQualityChanged;
 use App\Modules\Messaging\MessageSender;
+use App\Modules\Messaging\Meta\MetaGraphClient;
 use App\Modules\Messaging\WhatsAppOnboarding;
 use App\Shared\Integrations\TenantRoute;
 use App\Shared\Phone\PhoneNumber;
@@ -269,4 +270,22 @@ it('answers signup failures with a reason the merchant can act on (review B9)', 
     $this->actingAs($owner)->postJson($url, ['waba_id' => 'waba-taken'] + $payload)
         ->assertStatus(409)
         ->assertJsonPath('reason', 'already_connected');
+});
+
+it('never lets the app secret escape in an exception (review H2)', function () {
+    Http::fake(fn () => throw new ConnectionException('cURL error 28: timeout for https://graph.facebook.com/v24.0/oauth/access_token?client_secret=testing-meta-secret&code=abc'));
+
+    try {
+        app(MetaGraphClient::class)->exchangeCode('abc');
+        $this->fail('Expected the exchange to fail.');
+    } catch (RuntimeException $exception) {
+        $chain = '';
+
+        for ($e = $exception; $e !== null; $e = $e->getPrevious()) {
+            $chain .= $e->getMessage();
+        }
+
+        expect($chain)->not->toContain('testing-meta-secret')
+            ->and($exception->getPrevious())->toBeNull();
+    }
 });
