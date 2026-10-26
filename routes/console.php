@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Modules\Commerce\Jobs\ReconcileStore;
 use App\Modules\Commerce\Jobs\RefreshStoreToken;
@@ -62,13 +63,21 @@ Schedule::call(fn () => app(ScheduledActionDispatcher::class)->dispatchDue())
 
 /*
 | Measurement (M09): weekly SRM check + frozen report snapshot per tenant
-| (Sunday 06:00 Riyadh, before the weekly merchant call).
+| (Sunday 06:00 in the workspace's own timezone, before the weekly merchant
+| call, ADR-012). Checked hourly; each tenant is due in one hour a week.
 */
 Schedule::call(function () {
-    foreach (TenantRoute::commerceTenants() as $tenantId) {
-        WeeklyMeasurement::dispatch($tenantId);
+    $tenantIds = TenantRoute::commerceTenants();
+    $timezones = Team::query()->whereKey($tenantIds)->pluck('timezone', 'id');
+
+    foreach ($tenantIds as $tenantId) {
+        $local = now((string) ($timezones[$tenantId] ?? config('currencies.default_timezone')));
+
+        if ($local->dayOfWeek === 0 && $local->hour === 6) {
+            WeeklyMeasurement::dispatch($tenantId);
+        }
     }
-})->weeklyOn(0, '03:00')->name('measurement:weekly')->withoutOverlapping()
+})->hourly()->name('measurement:weekly')->withoutOverlapping()
     ->description('SRM check and weekly profit report snapshot');
 
 /*

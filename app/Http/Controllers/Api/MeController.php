@@ -6,6 +6,7 @@ use App\Enums\TeamPermission;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
+use App\Shared\Money\Currencies;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -31,6 +32,9 @@ class MeController
                     'slug' => $team->slug,
                     'name' => $team->name,
                     'role' => $user->teamRole($team)?->value,
+                    // ADR-012: money in this workspace is integer minor units of this currency.
+                    'currency' => self::currency($team),
+                    'timezone' => $team->timezone ?? (string) config('currencies.default_timezone'),
                     'permissions' => collect(TeamPermission::cases())
                         ->filter(fn (TeamPermission $permission) => $user->hasTeamPermission($team, $permission))
                         ->map(fn (TeamPermission $permission) => $permission->value)
@@ -51,5 +55,20 @@ class MeController
                     ])->values(),
             ],
         ]);
+    }
+
+    /**
+     * @return array{code: string, exponent: int, symbol_ar: string, symbol_en: string}
+     */
+    private static function currency(Team $team): array
+    {
+        $currency = Currencies::get(Currencies::supports($team->currency) ? $team->currency : (string) config('currencies.default'));
+
+        return [
+            'code' => $currency->code,
+            'exponent' => $currency->exponent,
+            'symbol_ar' => $currency->symbol('ar'),
+            'symbol_en' => $currency->symbol('en'),
+        ];
     }
 }

@@ -86,6 +86,8 @@ final class Codex_Connector_Rest {
 				'plugin_version'      => CODEX_CONNECTOR_VERSION,
 				'woocommerce_version' => $data['woocommerce_version'],
 				'currency'            => $data['currency'],
+				'price_decimals'      => $data['price_decimals'],
+				'timezone'            => $data['timezone'],
 				'checkout'            => $data['checkout'],
 			),
 			200

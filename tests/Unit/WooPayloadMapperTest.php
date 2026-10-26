@@ -2,6 +2,12 @@
 
 use App\Modules\Commerce\WooCommerce\WooPayloadMapper;
 use App\Modules\Commerce\WooCommerce\WooSignature;
+use App\Shared\Money\Currencies;
+use Illuminate\Support\Facades\Log;
+use Tests\TestCase;
+
+// Booted for config/currencies.php; no database.
+uses(TestCase::class);
 
 function wooCartPayload(array $overrides = []): array
 {
@@ -147,4 +153,53 @@ it('signs and verifies like the protocol says', function () {
         ->and(WooSignature::forGet('secret', 5, '/codex/v1/carts', ['per_page' => 100, 'since' => '2026-10-28T10:00:00Z', 'page' => 1]))
         ->toBe('sha256='.hash_hmac('sha256', '5.GET./codex/v1/carts?page=1&per_page=100&since=2026-10-28T10%3A00%3A00Z', 'secret'))
         ->and(WooSignature::forGet('secret', 5, '/codex/v1/ping'))->toBe('sha256='.hash_hmac('sha256', '5.GET./codex/v1/ping?', 'secret'));
+});
+
+it('reads Egyptian and Kuwaiti amounts exactly in their minor units', function () {
+    $egp = (new WooPayloadMapper)->withCurrency(Currencies::get('EGP'));
+    $kwd = (new WooPayloadMapper)->withCurrency(Currencies::get('KWD'));
+
+    $cart = $egp->cart(wooCartPayload(['currency' => 'EGP', 'total' => '345.50', 'items' => [['product_id' => '1', 'quantity' => 1, 'unit_price' => '345.50']]]));
+    expect($cart->totalHalalas)->toBe(34550)
+        ->and($cart->currency)->toBe('EGP')
+        ->and($cart->items[0]->unitPriceHalalas)->toBe(34550);
+
+    $order = $kwd->order(['id' => 1, 'currency' => 'KWD', 'total' => '12.345', 'discount_total' => '0.005', 'shipping_total' => '1.250', 'line_items' => [['product_id' => 5, 'quantity' => 1, 'price' => 11.1]], 'refunds' => [['total' => '-2.001']]]);
+    expect($order->totalHalalas)->toBe(12345)
+        ->and($order->discountHalalas)->toBe(5)
+        ->and($order->shippingHalalas)->toBe(1250)
+        ->and($order->items[0]->unitPriceHalalas)->toBe(11100)
+        ->and($order->refundedHalalas)->toBe(2001)
+        ->and($order->currency)->toBe('KWD');
+
+    expect($kwd->product(['id' => 5, 'status' => 'publish', 'price' => '12.345', 'regular_price' => '15.000', 'sale_price' => '12.345'])->priceHalalas)->toBe(12345);
+});
+
+it('tells a record in another currency than the workspace, so callers skip it', function () {
+    Log::spy();
+    $mapper = (new WooPayloadMapper)->withCurrency(Currencies::get('EGP'));
+
+    expect($mapper->inWorkspaceCurrency(['id' => 'c1', 'currency' => 'EGP'], 'cart'))->toBeTrue()
+        ->and($mapper->inWorkspaceCurrency(['id' => 'c1', 'currency' => 'egp'], 'cart'))->toBeTrue()
+        ->and($mapper->inWorkspaceCurrency(['id' => 'c1'], 'cart'))->toBeTrue()
+        ->and($mapper->inWorkspaceCurrency(['id' => 'c2', 'currency' => 'USD'], 'order'))->toBeFalse();
+
+    Log::shouldHaveReceived('warning')->once();
+});
+
+it('reads an order phone typed locally in the billing country', function () {
+    $order = (new WooPayloadMapper)->withCurrency(Currencies::get('EGP'))->order([
+        'id' => 9, 'currency' => 'EGP', 'total' => '345',
+        'billing' => ['phone' => '010 1234 5678', 'country' => 'EG'],
+    ]);
+
+    expect($order->customer?->phone?->e164)->toBe('+201012345678');
+});
+
+it('drops an amount beyond a bigint instead of storing a saturated one', function () {
+    Log::spy();
+    $iqd = (new WooPayloadMapper)->withCurrency(Currencies::get('IQD'));
+
+    expect($iqd->product(['id' => 5, 'status' => 'publish', 'price' => '99999999999999999999', 'regular_price' => '25000', 'sale_price' => ''])->priceHalalas)->toBeNull()
+        ->and($iqd->cart(wooCartPayload(['currency' => 'IQD', 'total' => '1e30']))->totalHalalas)->toBe(0);
 });

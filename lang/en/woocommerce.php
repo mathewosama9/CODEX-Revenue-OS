@@ -7,7 +7,8 @@ return [
     'redirected' => 'The site redirects to another address. Enter the final address as it shows in the browser.',
     'bad_keys' => 'WooCommerce rejected the keys. Check the consumer key and secret and that their permission is Read.',
     'not_woocommerce' => 'We found no WooCommerce REST API on this site. Check that WooCommerce is active and the address is right.',
-    'currency' => 'The store currency must be the Saudi riyal (SAR). Change it in the WooCommerce settings and try again.',
+    'currency' => 'We do not support the store currency (:currency) yet. Supported currencies: :supported.',
+    'currency_mismatch' => 'This workspace already has store data in :workspace_currency, and this store sells in :currency. Connect it to a new workspace: one workspace has one currency.',
     'other_workspace' => 'This store is connected to another workspace. Disconnect it there first, or contact the CODEX team.',
     'other_platform' => 'This workspace is already connected to another store. Disconnect it first, then connect WooCommerce.',
 ];

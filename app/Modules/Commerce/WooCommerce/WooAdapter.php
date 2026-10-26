@@ -37,10 +37,11 @@ class WooAdapter implements CommerceAdapter
 
         foreach ($this->client->pluginPages(WooSite::fromStore($store), '/codex/v1/carts', $query, $window) as $row) {
             // Expired carts are not abandoned any more; purchased ones mark ours purchased.
-            if (($row['status'] ?? null) !== 'expired' && is_string($row['id'] ?? null) && preg_match(self::CART_ID, $row['id']) === 1) {
+            if (($row['status'] ?? null) !== 'expired' && is_string($row['id'] ?? null) && preg_match(self::CART_ID, $row['id']) === 1
+                && $this->mapper($store)->inWorkspaceCurrency($row, 'cart')) {
                 // Reconciliation may see the cart before its webhook: record the box first, like the webhook does.
                 $this->checkoutConsent->record($row);
-                yield $this->mapper->cart($row);
+                yield $this->mapper($store)->cart($row);
             }
         }
     }
@@ -65,11 +66,12 @@ class WooAdapter implements CommerceAdapter
             throw $exception;
         }
 
-        if (($body['status'] ?? null) === 'expired' || ! isset($body['id'])) {
+        // A cart in another currency than the workspace's is never used (ADR-012).
+        if (($body['status'] ?? null) === 'expired' || ! isset($body['id']) || ! $this->mapper($store)->inWorkspaceCurrency($body, 'cart')) {
             return null;
         }
 
-        return $this->mapper->cart($body);
+        return $this->mapper($store)->cart($body);
     }
 
     public function ordersSince(StoreConnection $store, CarbonImmutable $since, ?PageWindow $window = null): iterable
@@ -82,7 +84,11 @@ class WooAdapter implements CommerceAdapter
         ];
 
         foreach ($this->client->paginate(WooSite::fromStore($store), 'orders', $query, $window) as $row) {
-            $order = $this->mapper->order($row);
+            if (! $this->mapper($store)->inWorkspaceCurrency($row, 'order')) {
+                continue;
+            }
+
+            $order = $this->mapper($store)->order($row);
 
             if ($order->placedAt->greaterThanOrEqualTo($since)) {
                 yield $order;
@@ -95,7 +101,7 @@ class WooAdapter implements CommerceAdapter
         $site = WooSite::fromStore($store);
 
         foreach ($this->client->paginate($site, 'products', ['status' => 'publish'], $window) as $row) {
-            yield $this->mapper->product($row, $this->variations($site, $row));
+            yield $this->mapper($store)->product($row, $this->variations($site, $row));
         }
     }
 
@@ -125,12 +131,12 @@ class WooAdapter implements CommerceAdapter
         throw new LogicException('WooCommerce REST keys do not expire: there is no token to refresh.');
     }
 
-    /** One order, for `order.*` events (the plugin sends only the id). Null when Woo has none. */
+    /** One order, for `order.*` events (the plugin sends only the id). Null when Woo has none or it is in another currency. */
     public function order(StoreConnection $store, string $externalId): ?OrderData
     {
         $row = $this->one(WooSite::fromStore($store), 'orders/'.rawurlencode($externalId));
 
-        return $row === null ? null : $this->mapper->order($row);
+        return $row === null || ! $this->mapper($store)->inWorkspaceCurrency($row, 'order') ? null : $this->mapper($store)->order($row);
     }
 
     /** One product with its variations, for `product.updated`. Null when Woo has none. */
@@ -139,7 +145,7 @@ class WooAdapter implements CommerceAdapter
         $site = WooSite::fromStore($store);
         $row = $this->one($site, 'products/'.rawurlencode($externalId));
 
-        return $row === null ? null : $this->mapper->product($row, $this->variations($site, $row));
+        return $row === null ? null : $this->mapper($store)->product($row, $this->variations($site, $row));
     }
 
     /**
@@ -177,5 +183,11 @@ class WooAdapter implements CommerceAdapter
         }
 
         return $rows;
+    }
+
+    /** Amounts in the store's workspace currency (ADR-012), also when called outside its tenant. */
+    private function mapper(StoreConnection $store): WooPayloadMapper
+    {
+        return $this->mapper->forTenant($store->tenant_id);
     }
 }

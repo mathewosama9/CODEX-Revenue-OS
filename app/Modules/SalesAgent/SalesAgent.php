@@ -22,6 +22,7 @@ use App\Modules\SalesAgent\Models\AgentSettings;
 use App\Modules\SalesAgent\Models\ReplyDraft;
 use App\Modules\SalesAgent\Tools\RunContext;
 use App\Shared\Tenancy\TenantContext;
+use App\Shared\Tenancy\WorkspaceLocale;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 
@@ -56,6 +57,7 @@ class SalesAgent
         private readonly UsageMeter $usage,
         private readonly AuditLogger $audit,
         private readonly BlockRateMonitor $monitor,
+        private readonly WorkspaceLocale $locale,
     ) {}
 
     public function respond(int $conversationId, int $inboundMessageId): ?AgentRun
@@ -150,7 +152,7 @@ class SalesAgent
     {
         $latest = end($history);
         $cart = $this->commerce->openCartFor($conversation->subjectHash);
-        $reason = $this->rules->check($latest === false ? '' : $latest->text, $cart?->totalHalalas, $settings->handoff_cart_halalas);
+        $reason = $this->rules->check($latest === false ? '' : $latest->text, $cart?->totalHalalas, $this->controls->handoffCartMinor($settings));
 
         if ($reason !== null) {
             return [null, $reason];
@@ -181,7 +183,8 @@ class SalesAgent
      */
     private function ask(AgentRun $run, ConversationSnapshot $conversation, AgentSettings $settings, array $history): array
     {
-        $instructions = SystemPrompt::for($this->storeName());
+        $prompt = SystemPrompt::for($this->storeName(), $this->locale->currency());
+        $instructions = $prompt;
         $trace = [];
         $started = hrtime(true);
 
@@ -243,7 +246,7 @@ class SalesAgent
 
             $trace[] = ['attempt' => $attempt, 'blocked_numbers' => $reply->validation->unmatched];
             $run->trace = $trace;
-            $instructions = SystemPrompt::for($this->storeName()).SystemPrompt::retryNote($reply->validation->unmatched);
+            $instructions = $prompt.SystemPrompt::retryNote($reply->validation->unmatched);
         }
 
         return [null, HandoffReason::ValidatorFailed];

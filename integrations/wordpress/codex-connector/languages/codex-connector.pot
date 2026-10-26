@@ -102,10 +102,6 @@ msgstr ""
 msgid "You do not have permission to access this page."
 msgstr ""
 
-#: includes/class-settings.php:262
-msgid "Your store currency is not SAR. CODEX only supports stores in Saudi riyals."
-msgstr ""
-
 #: includes/class-settings.php:274 includes/class-settings.php:287
 msgid "Test connection"
 msgstr ""

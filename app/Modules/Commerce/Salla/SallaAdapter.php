@@ -24,7 +24,7 @@ class SallaAdapter implements CommerceAdapter
     public function abandonedCarts(StoreConnection $store, int $sinceMinutes, ?PageWindow $window = null): iterable
     {
         foreach ($this->client->paginate($store, 'carts/abandoned', ['offset' => $sinceMinutes, 'per_page' => 60], $window) as $row) {
-            yield $this->mapper->cart($row);
+            yield $this->mapper($store)->cart($row);
         }
     }
 
@@ -40,7 +40,7 @@ class SallaAdapter implements CommerceAdapter
             throw $exception;
         }
 
-        return is_array($body['data'] ?? null) ? $this->mapper->cart($body['data']) : null;
+        return is_array($body['data'] ?? null) ? $this->mapper($store)->cart($body['data']) : null;
     }
 
     public function ordersSince(StoreConnection $store, CarbonImmutable $since, ?PageWindow $window = null): iterable
@@ -48,7 +48,7 @@ class SallaAdapter implements CommerceAdapter
         $query = ['from_date' => $since->setTimezone('Asia/Riyadh')->toDateString(), 'per_page' => 60];
 
         foreach ($this->client->paginate($store, 'orders', $query, $window) as $row) {
-            $order = $this->mapper->order($row);
+            $order = $this->mapper($store)->order($row);
 
             if ($order->placedAt->greaterThanOrEqualTo($since)) {
                 yield $order;
@@ -59,7 +59,7 @@ class SallaAdapter implements CommerceAdapter
     public function products(StoreConnection $store, ?PageWindow $window = null): iterable
     {
         foreach ($this->client->paginate($store, 'products', ['per_page' => 60], $window) as $row) {
-            yield $this->mapper->product($row);
+            yield $this->mapper($store)->product($row);
         }
     }
 
@@ -83,5 +83,11 @@ class SallaAdapter implements CommerceAdapter
     public function refreshTokens(StoreConnection $store): TokenSet
     {
         return SallaTokens::fromResponse($this->client->refreshToken((string) $store->refresh_token));
+    }
+
+    /** Amounts in the store's workspace currency (ADR-012), also when called outside its tenant. */
+    private function mapper(StoreConnection $store): SallaPayloadMapper
+    {
+        return $this->mapper->forTenant($store->tenant_id);
     }
 }

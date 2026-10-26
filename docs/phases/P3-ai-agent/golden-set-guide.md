@@ -18,7 +18,7 @@
 
 ## 2. شكل الحالة
 
-كل ملف في `evals/golden/cases/*.yaml` فيه list حالات. والأرقام المتوقعة كلها جاية من المتجر الثابت `evals/golden/store.yaml` (منتجات + سياسات). **لو غيّرت سعر هناك، غيّر الحالات اللي بتذكره.**
+كل ملف في `evals/golden/cases/*.yaml` فيه list حالات. والأرقام المتوقعة كلها جاية من المتجر الثابت بتاع الحالة (منتجات + سياسات، §2.1). **لو غيّرت سعر هناك، غيّر الحالات اللي بتذكره.**
 
 ```yaml
 - id: sa-price-002            # فريد في كل الملفات (التكرار = خطأ في التحميل)
@@ -30,7 +30,8 @@
   #   - {customer: عندكم عود؟}
   #   - {assistant: أيوه عندنا عود كمبودي ملكي}
   #   - {customer: بكم؟}
-  cart_sar: 2000              # اختياري: سلة متروكة للعميل بالقيمة دي
+  store: default             # اختياري: المتجر الثابت (§2.1)، الافتراضي default = store.yaml
+  cart_sar: 2000              # اختياري: سلة متروكة للعميل بالقيمة دي (متجر بالريال بس؛ غيره: cart: "345.50")
   cart_items: [chanel]        # اختياري: IDs منتجات السلة (من store.yaml)
   expect:
     outcome: draft            # draft (رد) أو handoff
@@ -52,7 +53,8 @@
 | `category` | أيوه | لازم تكون من `GoldenSet::CATEGORIES`، وإلا التحميل بيفشل |
 | `dialect` | لأ | `saudi` افتراضيًا |
 | `say` / `turns` | واحد منهم | `turns` بـ`customer:` و`assistant:` |
-| `cart_sar`، `cart_items` | لأ | السلة بتتعمل بـ`checkout_url` = `https://golden.store.test/checkout/<id>` |
+| `store` | لأ | مفتاح المتجر الثابت: `default` (الافتراضي، `store.yaml`) أو `<key>` (`store-<key>.yaml`). مفتاح مش موجود = خطأ في التحميل |
+| `cart`، `cart_items` | لأ | قيمة السلة **بعملة المتجر** كرقم عشري (`"345.50"`، `"12.345"`). `cart_sar` اسم قديم مقبول لمتجر بالريال بس، وفي متجر بعملة تانية = خطأ في التحميل. السلة بتتعمل بـ`checkout_url` = `https://golden.store.test/checkout/<id>` |
 | `expect.outcome` | أيوه | `draft` أو `handoff` بس |
 | `expect.reason` | لأ | قيمة من `HandoffReason` (`asked_human`، `complaint`، `discount_request`، `high_cart_value`، `validator_failed`، `tool_failed`، `policy_missing`، ...) |
 | `expect.tools` | لأ | الـtools اللي اتنادت فعلًا لازم تشمل دول |
@@ -61,8 +63,38 @@
 | `offline` | لأ | خطوات `{tool, args}` و`{reply}` بالترتيب. لو الرد الأول اتمنع، الخطوات اللي بعده بتغذّي الـretry |
 | `live` | لأ | `expect` بديل للموديل الحقيقي بس، لما الرد الغلط اللي في السكريبت مش هو اللي الموديل بيعمله (مثلًا بيرفض يحسب المجموع بدل ما يتمنع). بيقبل `outcome: any`، يعني الرد والـhandoff الاتنين آمنين، و`contains` بيتحسب على الرد بس. `price` بيتورث من `expect` |
 
+### 2.1 المتاجر الثابتة (أكتر من متجر، ADR-012)
+
+| الملف | المفتاح (`store:`) | الاستخدام |
+|---|---|---|
+| `evals/golden/store.yaml` | `default` | المتجر السعودي (SAR، `Asia/Riyadh`): كل الحالات القديمة |
+| `evals/golden/store-<key>.yaml` | `<key>` (حروف صغيرة وأرقام و`-`) | متجر تاني، مثلًا `store-eg.yaml` → `store: eg` للمتجر المصري (EGP، `Africa/Cairo`) |
+
+كل ملف متجر:
+
+```yaml
+name: متجر الاختبار المصري
+currency: EGP            # اختياري، الافتراضي SAR. لازم تكون في config/currencies.php
+timezone: Africa/Cairo   # اختياري، الافتراضي currencies.default_timezone (Asia/Riyadh)
+products:
+  - id: jumpsuit
+    name: سلوبيت شتوي
+    price: "345"         # بعملة المتجر، رقم عشري (لـKWD: "12.345"). price_sar/was_sar للمتجر بالريال بس
+    was: "420"           # اختياري: السعر قبل الخصم
+    quantity: 5
+    variants:
+      - {id: jumpsuit-m, name: M, price: "345", quantity: 2}
+policies:
+  shipping: ...
+```
+
+- الـrunner بيعمل **workspace مؤقت لكل متجر** بعملته ومنطقته الزمنية (`teams.currency`، `teams.timezone`)، ويزرعه، ويشغّل حالاته جواه. فالـagent والـvalidator بيشوفوا عملة المتجر بالظبط زي متجر حقيقي.
+- الأسعار بتتحوّل بـ`Currency::toMinor` (من غير float). `price_sar`/`was_sar`/`cart_sar` في متجر مش بالريال = خطأ في التحميل، عشان محدش يكتب جنيه في حقل اسمه ريال.
+- النتايج بترجع بنفس ترتيب الحالات، مهما كان المتجر.
+- الحالات المصرية القديمة (`egyptian.yaml`) **لهجة** مصرية على المتجر السعودي؛ حالات المتجر المصري بتكتب `store: eg`.
+
 ### إزاي الـrunner بيحكم على الحالة (`GoldenSetRunner`)
-1. بيعمل tenant مؤقت، ويزرع `store.yaml`، ويشغّل **نفس قرار الـagent الحقيقي** (`SalesAgent::evaluate`) من غير ما يحفظ أو يبعت حاجة، وبعدين rollback.
+1. بيعمل tenant مؤقت لكل متجر ثابت (§2.1)، ويزرعه، ويشغّل **نفس قرار الـagent الحقيقي** (`SalesAgent::evaluate`) من غير ما يحفظ أو يبعت حاجة، وبعدين rollback.
 2. **offline:** لو فيه `offline` بيشغّل السكريبت. لو مفيش والحالة handoff حتمي (`asked_human`/`complaint`/`discount_request`/`high_cart_value`)، بيشغّل **من غير موديل** (أي نداء للموديل = فشل). غير كده الحالة `live_only` ومبتتحسبش.
 3. بيقارن النتيجة بالـ`expect`، وبيسجّل صف في `eval_runs` (الـsuite، الموديل، `SystemPrompt::VERSION`، الأعداد، التكلفة، الفشل).
 
@@ -90,7 +122,7 @@
 
 1. اختار الملف حسب الفئة (`saudi-price.yaml`، `saudi-stock.yaml`، ...) أو اعمل ملف جديد في `evals/golden/cases/`.
 2. اكتب الرسالة **زي ما العميل بيكتبها فعلًا**: لهجة، أخطاء إملاء، عربيزي، إيموجي.
-3. حدّد `expect`. أي رقم في `contains` لازم يكون موجود في `store.yaml`. لو محتاج منتج جديد، ضيفه هناك.
+3. حدّد `expect`. أي رقم في `contains` لازم يكون موجود في متجر الحالة (`store.yaml` أو `store-<key>.yaml`). لو محتاج منتج جديد، ضيفه هناك.
 4. لو الحالة سعر أو مخزون أو رقم سياسة: `price: true`.
 5. لو عايزها تشتغل في CI: اكتب `offline`. لو handoff حتمي، متكتبش `offline` (عشان نثبت إن الموديل متناداش).
 6. شغّل `php artisan ai:eval` وتأكد إنها عدّت.

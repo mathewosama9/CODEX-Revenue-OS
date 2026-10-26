@@ -13,9 +13,10 @@ import { Section } from '@/components/section';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useI18n } from '@/i18n';
+import { format, useI18n } from '@/i18n';
 import type { Dictionary } from '@/i18n/ar';
 import { ApiError, getData, sendData } from '@/lib/api';
+import { toMajorInput, toMinor } from '@/lib/money';
 import { useTeam } from '@/lib/session';
 import type { Recovery, RecoverySettings } from '@/lib/types';
 import { useSubmit } from '@/lib/use-form';
@@ -28,8 +29,10 @@ type NumericKey = {
 type NumberSpec = {
     key: NumericKey;
     label: keyof Dictionary['recovery'];
-    /** Stored value = shown value × scale (halalas and basis points). */
+    /** Stored value = shown value × scale (basis points). */
     scale?: number;
+    /** Minor units of the workspace currency: shown in major units, scale 10^exponent (ADR-012). */
+    money?: boolean;
     min: number;
     max?: number;
     help?: keyof Dictionary['recovery'];
@@ -40,7 +43,7 @@ const TIMING: NumberSpec[] = [
     { key: 'first_delay_minutes', label: 'firstDelay', min: 60, max: 4320 },
     { key: 'second_delay_minutes', label: 'secondDelay', min: 60, max: 10080 },
     { key: 'max_messages', label: 'maxMessages', min: 1, max: 3 },
-    { key: 'min_cart_halalas', label: 'minCart', scale: 100, min: 0 },
+    { key: 'min_cart_halalas', label: 'minCart', money: true, min: 0 },
     { key: 'frequency_days', label: 'frequency', min: 1, max: 60 },
 ];
 
@@ -48,7 +51,7 @@ const DISCOUNT: NumberSpec[] = [
     { key: 'discount_percent', label: 'discountPercent', min: 0, max: 50 },
     { key: 'discount_cap_percent', label: 'discountCap', min: 0, max: 50 },
     { key: 'margin_floor_bps', label: 'marginFloor', scale: 100, min: 0, max: 100 },
-    { key: 'monthly_discount_budget_halalas', label: 'budget', scale: 100, min: 1, help: 'budgetHelp' },
+    { key: 'monthly_discount_budget_halalas', label: 'budget', money: true, min: 1, help: 'budgetHelp' },
     { key: 'approval_window_minutes', label: 'approvalWindow', min: 15, max: 2880 },
 ];
 
@@ -138,15 +141,19 @@ export default function RecoveryPage() {
 }
 
 function SettingsForm({ settings, onSaved }: { settings: RecoverySettings; onSaved: (fresh: Recovery) => void }) {
-    const { t } = useI18n();
-    const { path } = useTeam();
+    const { t, locale } = useI18n();
+    const { path, currency } = useTeam();
     const { busy, errors, failed, run } = useSubmit();
     const [saved, setSaved] = useState(false);
     const [values, setValues] = useState<Record<string, string>>(() =>
         Object.fromEntries(
-            [...TIMING, ...DISCOUNT].map((spec) => [spec.key, String(settings[spec.key] / (spec.scale ?? 1))]),
+            [...TIMING, ...DISCOUNT].map((spec) => [
+                spec.key,
+                spec.money ? toMajorInput(settings[spec.key], currency) : String(settings[spec.key] / (spec.scale ?? 1)),
+            ]),
         ),
     );
+    const symbol = locale === 'ar' ? currency.symbol_ar : currency.symbol_en;
     const [discountEnabled, setDiscountEnabled] = useState(settings.discount_enabled);
     const [discountCode, setDiscountCode] = useState(settings.discount_code ?? '');
 
@@ -161,7 +168,10 @@ function SettingsForm({ settings, onSaved }: { settings: RecoverySettings; onSav
             };
 
             for (const spec of [...TIMING, ...DISCOUNT]) {
-                payload[spec.key] = Math.round(Number(values[spec.key]) * (spec.scale ?? 1));
+                // Money in exact minor units ("2500.50" EGP → 250050); a malformed amount is left for the API to reject.
+                payload[spec.key] = spec.money
+                    ? (toMinor(values[spec.key], currency) ?? values[spec.key])
+                    : Math.round(Number(values[spec.key]) * (spec.scale ?? 1));
             }
 
             onSaved(await sendData<Recovery>('PUT', path('/recovery'), payload));
@@ -171,13 +181,14 @@ function SettingsForm({ settings, onSaved }: { settings: RecoverySettings; onSav
 
     const numberField = (spec: NumberSpec) => (
         <div key={spec.key} className="flex flex-col gap-1.5">
-            <Label htmlFor={spec.key}>{t.recovery[spec.label]}</Label>
+            <Label htmlFor={spec.key}>{format(t.recovery[spec.label], { currency: symbol })}</Label>
             <Input
                 id={spec.key}
                 type="number"
                 dir="ltr"
                 min={spec.min}
                 max={spec.max}
+                step={spec.money ? 1 / 10 ** currency.exponent : undefined}
                 className="w-40 font-numeric tabular-nums"
                 // An empty field would be sent as 0, which can switch a protection off (review B6).
                 required

@@ -250,17 +250,12 @@ final class Codex_Connector_Settings {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'codex-connector' ) );
 		}
 
-		$currency = function_exists( 'get_woocommerce_currency' ) ? get_woocommerce_currency() : '';
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'CODEX Connector', 'codex-connector' ); ?></h1>
 			<?php
 			settings_errors( CODEX_CONNECTOR_OPTION );
 			self::render_test_result();
-
-			if ( 'SAR' !== $currency ) {
-				echo '<div class="notice notice-warning inline"><p>' . esc_html__( 'Your store currency is not SAR. CODEX only supports stores in Saudi riyals.', 'codex-connector' ) . '</p></div>';
-			}
 			?>
 			<form method="post" action="options.php">
 				<?php

@@ -28,7 +28,7 @@ const PLUGIN_ZIP = '/downloads/codex-connector.zip';
  */
 export function StoreConnect() {
     const { t, locale } = useI18n();
-    const { path, slug } = useTeam();
+    const { path, slug, timezone } = useTeam();
     const client = useQueryClient();
     const [secret, setSecret] = useState<WooConnection | null>(null);
     const [failed, setFailed] = useState(false);
@@ -112,6 +112,7 @@ export function StoreConnect() {
                                             ? formatDateTime(
                                                   data.store.last_webhook_at,
                                                   locale,
+                                                  timezone,
                                               )
                                             : t.onboarding.store.noEventYet}
                                     </dd>

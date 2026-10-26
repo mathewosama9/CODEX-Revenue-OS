@@ -1,6 +1,10 @@
 # Fixture store for the golden set. Every expected number in the cases comes
 # from here. Changing a price here means updating the cases that quote it.
+# Amounts (`price_sar`, `was_sar`) are in this store's currency; a store in
+# another currency writes `price` and `was` (golden-set-guide.md §2).
 name: متجر عطور الاختبار
+currency: SAR
+timezone: Asia/Riyadh
 products:
   - id: oud
     name: عود كمبودي ملكي

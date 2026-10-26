@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { format, useI18n } from '@/i18n';
 import { ApiError, getData, sendData } from '@/lib/api';
+import { toMajorInput, toMinor } from '@/lib/money';
 import { useTeam } from '@/lib/session';
 import type { AgentMode, AgentSettings } from '@/lib/types';
 import { useSubmit } from '@/lib/use-form';
@@ -236,24 +237,29 @@ function ModeSection({ settings, onSaved }: { settings: AgentSettings; onSaved: 
 }
 
 function LimitsForm({ settings, onSaved }: { settings: AgentSettings; onSaved: (fresh: AgentSettings) => void }) {
-    const { t } = useI18n();
-    const { path } = useTeam();
+    const { t, locale } = useI18n();
+    const { path, currency } = useTeam();
     const s = t.ai.settings;
     const { busy, errors, failed, run } = useSubmit();
     const [saved, setSaved] = useState(false);
     const [cap, setCap] = useState(String(settings.daily_cap_usd));
-    const [handoff, setHandoff] = useState(settings.handoff_cart_sar === null ? '' : String(settings.handoff_cart_sar));
+    // "1500.00" from the API reads "1500" in the field; "2500.50" keeps its decimals.
+    const [handoff, setHandoff] = useState(() => {
+        const minor = settings.handoff_cart === null ? null : toMinor(settings.handoff_cart, currency);
+
+        return minor === null ? (settings.handoff_cart ?? '') : toMajorInput(minor, currency);
+    });
 
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
         setSaved(false);
 
         void run(async () => {
-            const payload: Record<string, number> = { daily_cap_usd: Number(cap) };
+            const payload: Record<string, number | string> = { daily_cap_usd: Number(cap) };
 
-            // Left empty means "no cart threshold": the API has no way to clear it, so don't send it.
-            if (handoff !== '') {
-                payload.handoff_cart_sar = Math.round(Number(handoff));
+            // Left empty keeps the current threshold. Sent as the typed decimal: the API checks it against the currency's decimals.
+            if (handoff.trim() !== '') {
+                payload.handoff_cart = handoff.trim();
             }
 
             onSaved(await sendData<AgentSettings>('PUT', path('/ai/settings'), payload));
@@ -298,27 +304,28 @@ function LimitsForm({ settings, onSaved }: { settings: AgentSettings; onSaved: (
                         </p>
                     </div>
                     <div className="flex flex-col gap-1.5">
-                        <Label htmlFor="handoff_cart_sar">{s.handoffCart}</Label>
+                        <Label htmlFor="handoff_cart">
+                            {format(s.handoffCart, { currency: locale === 'ar' ? currency.symbol_ar : currency.symbol_en })}
+                        </Label>
                         <Input
-                            id="handoff_cart_sar"
+                            id="handoff_cart"
                             type="number"
                             dir="ltr"
-                            step="1"
-                            min={1}
-                            max={1000000}
+                            step={1 / 10 ** currency.exponent}
+                            min={1 / 10 ** currency.exponent}
                             className="w-40 font-numeric tabular-nums"
                             value={handoff}
                             onChange={(event) => setHandoff(event.target.value)}
-                            aria-invalid={errors.handoff_cart_sar ? true : undefined}
+                            aria-invalid={errors.handoff_cart ? true : undefined}
                         />
-                        {errors.handoff_cart_sar && (
+                        {errors.handoff_cart && (
                             <p className="text-xs text-destructive" role="alert">
-                                {errors.handoff_cart_sar}
+                                {errors.handoff_cart}
                             </p>
                         )}
                     </div>
                 </div>
-                <FormErrors errors={errors} shown={['daily_cap_usd', 'handoff_cart_sar']} />
+                <FormErrors errors={errors} shown={['daily_cap_usd', 'handoff_cart']} />
                 {failed && <p className="text-sm text-destructive">{t.common.error}</p>}
                 <div className="flex items-center gap-3">
                     <Button type="submit" disabled={busy}>

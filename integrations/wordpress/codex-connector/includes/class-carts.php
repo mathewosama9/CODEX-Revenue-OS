@@ -34,7 +34,7 @@ final class Codex_Connector_Carts {
   token varchar(64) NOT NULL,
   status varchar(16) NOT NULL DEFAULT 'open',
   currency varchar(8) NOT NULL DEFAULT '',
-  total varchar(32) NOT NULL DEFAULT '0.00',
+  total varchar(32) NOT NULL DEFAULT '0',
   items longtext NOT NULL,
   phone varchar(20) DEFAULT NULL,
   consent tinyint(1) NOT NULL DEFAULT 0,
@@ -203,7 +203,7 @@ final class Codex_Connector_Carts {
 				'variation_id' => isset( $item['variation_id'] ) && null !== $item['variation_id'] ? (string) $item['variation_id'] : null,
 				'name'         => isset( $item['name'] ) ? (string) $item['name'] : '',
 				'quantity'     => isset( $item['quantity'] ) ? (int) $item['quantity'] : 0,
-				'unit_price'   => isset( $item['unit_price'] ) ? (string) $item['unit_price'] : '0.00',
+				'unit_price'   => isset( $item['unit_price'] ) ? (string) $item['unit_price'] : Codex_Connector_Plugin::money( 0 ),
 				'category_id'  => isset( $item['category_id'] ) && null !== $item['category_id'] ? (string) $item['category_id'] : null,
 			);
 		}

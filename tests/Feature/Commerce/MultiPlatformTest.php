@@ -338,6 +338,8 @@ it('fans the scheduled commerce jobs out over every commerce tenant', function (
     $salla = sallaTenant();
     $woo = wooTenant();
     Queue::fake();
+    // Sunday 06:00 in the workspaces' timezone: the weekly measurement is due too.
+    $this->travelTo(CarbonImmutable::parse('2026-11-08 06:00', 'Asia/Riyadh'));
 
     foreach (app(Schedule::class)->events() as $event) {
         $event->run(app());

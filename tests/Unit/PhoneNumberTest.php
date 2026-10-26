@@ -29,3 +29,18 @@ it('rejects invalid numbers', function (?string $raw) {
     'local non-Saudi without code' => '01001234567',
     'letters' => 'call me',
 ]);
+
+it('reads a local number in the given country (ADR-012)', function (string $raw, string $country, ?string $e164) {
+    expect(PhoneNumber::tryParse($raw, $country)?->e164)->toBe($e164);
+})->with([
+    'Egypt local' => ['01012345678', 'EG', '+201012345678'],
+    'Egypt with code, no plus' => ['201012345678', 'EG', '+201012345678'],
+    'Egypt landline refused' => ['0223456789', 'EG', null],
+    'Kuwait 8 digits' => ['99123456', 'KW', '+96599123456'],
+    'Jordan local' => ['0791234567', 'JO', '+962791234567'],
+    'Saudi stays Saudi' => ['0512345678', 'SA', '+966512345678'],
+    'unknown country refuses local' => ['01012345678', 'FR', null],
+    'non-Arab billing country keeps the Saudi reading' => ['0512345678', 'US', '+966512345678'],
+    'empty billing country keeps the Saudi reading' => ['0512345678', '', '+966512345678'],
+    'international wins over country' => ['+966512345678', 'EG', '+966512345678'],
+]);

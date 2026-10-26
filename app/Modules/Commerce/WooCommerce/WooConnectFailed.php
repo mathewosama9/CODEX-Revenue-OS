@@ -17,11 +17,17 @@ class WooConnectFailed extends RuntimeException
 
     public const CURRENCY = 'currency';
 
+    /** The workspace already has data in another currency (ADR-012). */
+    public const CURRENCY_MISMATCH = 'currency_mismatch';
+
     public const OTHER_WORKSPACE = 'other_workspace';
 
     public const OTHER_PLATFORM = 'other_platform';
 
-    public function __construct(public readonly string $reason)
+    /**
+     * @param  array<string, string>  $replace  placeholders of the message in lang/{ar,en}/woocommerce.php
+     */
+    public function __construct(public readonly string $reason, public readonly array $replace = [])
     {
         parent::__construct("WooCommerce connect failed: {$reason}.");
     }

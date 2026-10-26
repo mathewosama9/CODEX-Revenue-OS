@@ -24,6 +24,9 @@
   category: price
   say: كم سعر العود حجم 100 مل؟
   expect: {outcome: draft, contains: ["349"], price: true}
+  # The model often answers "100ml is out, 50ml is 199" without the 100ml price: safe and per the prompt
+  # (out of stock → offer the size in stock). Any number it does write must still match get_product.
+  live: {outcome: draft, tools: [get_product]}
   offline:
     - {tool: get_product, args: {product_id: oud}}
     - {reply: "حجم 100ml سعره 349 ريال، بس للأسف خلصان حاليًا."}

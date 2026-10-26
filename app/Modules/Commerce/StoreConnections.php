@@ -39,7 +39,13 @@ class StoreConnections
         $isNew = $tenantId === null;
 
         $tenantId ??= DB::transaction(function () use ($provider, $externalStoreId) {
-            $team = Team::create(['name' => self::platformName($provider)." {$externalStoreId}", 'is_personal' => false]);
+            // Salla stores sell in SAR on Riyadh time (ADR-012).
+            $team = Team::create([
+                'name' => self::platformName($provider)." {$externalStoreId}",
+                'is_personal' => false,
+                'currency' => 'SAR',
+                'timezone' => 'Asia/Riyadh',
+            ]);
             TenantRoute::bind($provider, $externalStoreId, $team->id);
 
             return $team->id;

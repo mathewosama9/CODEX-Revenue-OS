@@ -15,10 +15,15 @@ use App\Modules\Knowledge\KnowledgeKind;
 use App\Modules\SalesAgent\Models\EvalRun;
 use App\Modules\SalesAgent\SalesAgent;
 use App\Modules\SalesAgent\SystemPrompt;
+use App\Shared\Money\Currencies;
+use App\Shared\Money\Currency;
+use App\Shared\Money\JsonAmount;
 use App\Shared\Tenancy\TenantContext;
+use App\Shared\Tenancy\WorkspaceLocale;
 use Closure;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 /**
  * Runs the golden set against the real agent decision (US-E10-05) in a
@@ -52,39 +57,67 @@ final class GoldenSetRunner
         DB::beginTransaction();
 
         try {
-            $team = Team::query()->create(['name' => (string) ($this->set->store()['name'] ?? 'Golden store'), 'slug' => 'golden-'.Str::lower(Str::random(10)), 'is_personal' => false]);
+            // One throw-away workspace per fixture store, in that store's currency and timezone.
+            foreach ($this->set->stores() as $key => $store) {
+                $storeCases = array_filter($cases, fn (GoldenCase $case) => $case->store === $key);
 
-            $results = $this->tenants->run($team->id, function () use ($cases, $live, $progress, $pauseSeconds) {
-                $this->seed($this->set->store());
-                $results = [];
-
-                foreach ($cases as $case) {
-                    $result = $this->runCase($case, $live);
-
-                    // Free provider tiers rate-limit: wait and try the case once more, so the run measures the model.
-                    if ($live && $pauseSeconds > 0 && in_array('expected a reply, got handoff:provider_unavailable', $result->problems, true)) {
-                        sleep($pauseSeconds * 3);
-                        $result = $this->runCase($case, $live);
-                    }
-
-                    if ($live && $pauseSeconds > 0) {
-                        sleep($pauseSeconds);
-                    }
-
-                    $results[] = $result;
-
-                    if ($progress !== null) {
-                        $progress($result);
-                    }
+                if ($storeCases !== []) {
+                    $results += $this->runStore($store, $storeCases, $live, $progress, $pauseSeconds);
                 }
-
-                return $results;
-            });
+            }
         } finally {
             DB::rollBack();
         }
 
+        // Back in case order, whatever the store.
+        ksort($results);
+        $results = array_values($results);
+
         return ['results' => $results, 'run' => $this->record($results, $live)];
+    }
+
+    /**
+     * @param  array<string, mixed>  $store
+     * @param  array<int, GoldenCase>  $cases  keyed by their place in the set
+     * @param  Closure(CaseResult): void|null  $progress
+     * @return array<int, CaseResult>
+     */
+    private function runStore(array $store, array $cases, bool $live, ?Closure $progress, int $pauseSeconds): array
+    {
+        $team = Team::query()->create([
+            'name' => (string) ($store['name'] ?? 'Golden store'),
+            'slug' => 'golden-'.Str::lower(Str::random(10)),
+            'is_personal' => false,
+            'currency' => (string) $store['currency'],
+            'timezone' => (string) $store['timezone'],
+        ]);
+
+        return $this->tenants->run($team->id, function () use ($store, $cases, $live, $progress, $pauseSeconds) {
+            $this->seed($store);
+            $results = [];
+
+            foreach ($cases as $index => $case) {
+                $result = $this->runCase($case, $live);
+
+                // Free provider tiers rate-limit: wait and try the case once more, so the run measures the model.
+                if ($live && $pauseSeconds > 0 && in_array('expected a reply, got handoff:provider_unavailable', $result->problems, true)) {
+                    sleep($pauseSeconds * 3);
+                    $result = $this->runCase($case, $live);
+                }
+
+                if ($live && $pauseSeconds > 0) {
+                    sleep($pauseSeconds);
+                }
+
+                $results[$index] = $result;
+
+                if ($progress !== null) {
+                    $progress($result);
+                }
+            }
+
+            return $results;
+        });
     }
 
     private function runCase(GoldenCase $case, bool $live): CaseResult
@@ -168,30 +201,35 @@ final class GoldenSetRunner
     }
 
     /**
+     * Amounts are decimals in the store's currency: `price`, `was` and the
+     * variants' `price` (`price_sar`/`was_sar` in a SAR store).
+     *
      * @param  array<string, mixed>  $store
      */
     private function seed(array $store): void
     {
         $recorder = app(CommerceRecorder::class);
+        $currency = Currencies::get((string) $store['currency']);
 
         foreach ((array) ($store['products'] ?? []) as $product) {
             $product = (array) $product;
+            $was = self::amount($currency, $product, 'was');
             $recorder->recordProduct(new ProductData(
                 externalId: (string) $product['id'],
                 name: (string) $product['name'],
                 sku: null,
                 categoryExternalId: null,
-                priceHalalas: (int) round(((float) $product['price_sar']) * 100),
+                priceHalalas: self::amount($currency, $product, 'price') ?? throw new InvalidArgumentException("Golden product {$product['id']} has no price."),
                 quantity: isset($product['quantity']) ? (int) $product['quantity'] : null,
                 status: (string) ($product['status'] ?? 'sale'),
                 description: isset($product['description']) ? (string) $product['description'] : null,
                 url: 'https://golden.store.test/p/'.$product['id'],
-                regularPriceHalalas: isset($product['was_sar']) ? (int) round(((float) $product['was_sar']) * 100) : null,
+                regularPriceHalalas: $was,
                 unlimitedQuantity: (bool) ($product['unlimited'] ?? false),
                 variants: array_values(array_map(fn ($v) => new VariantData(
                     (string) $v['id'],
                     (string) $v['name'],
-                    (int) round(((float) $v['price_sar']) * 100),
+                    self::amount($currency, (array) $v, 'price'),
                     isset($v['quantity']) ? (int) $v['quantity'] : null,
                 ), (array) ($product['variants'] ?? []))),
             ));
@@ -207,9 +245,25 @@ final class GoldenSetRunner
         }
     }
 
+    /**
+     * `$key` (or `{$key}_sar` in a SAR store) → minor units of the store currency; null when absent.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private static function amount(Currency $currency, array $row, string $key): ?int
+    {
+        $decimal = JsonAmount::decimal($row[$key] ?? ($currency->code === 'SAR' ? ($row["{$key}_sar"] ?? null) : null));
+
+        if ($decimal === null && isset($row["{$key}_sar"])) {
+            throw new InvalidArgumentException("Golden store in {$currency->code}: write {$key}, not {$key}_sar.");
+        }
+
+        return $decimal === null ? null : $currency->toMinor($decimal);
+    }
+
     private function cart(GoldenCase $case, string $subject): void
     {
-        if ($case->cartSar === null) {
+        if ($case->cart === null) {
             return;
         }
 
@@ -217,7 +271,8 @@ final class GoldenSetRunner
             'tenant_id' => $this->tenants->require(),
             'external_id' => 'golden-'.$case->id,
             'phone_hash' => $subject,
-            'total_halalas' => $case->cartSar * 100,
+            'total_halalas' => app(WorkspaceLocale::class)->currency()->toMinor($case->cart),
+            'currency' => app(WorkspaceLocale::class)->currency()->code,
             'checkout_url' => 'https://golden.store.test/checkout/'.$case->id,
             'status' => 'abandoned',
             'abandoned_at' => now(),

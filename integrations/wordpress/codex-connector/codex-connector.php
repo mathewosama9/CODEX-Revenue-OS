@@ -3,7 +3,7 @@
  * Plugin Name:          CODEX Connector
  * Plugin URI:           https://codex.sa/
  * Description:          Connects your WooCommerce store to CODEX: captures abandoned carts at checkout (only with the customer's WhatsApp consent) and keeps CODEX in sync with orders and products.
- * Version:              1.0.0
+ * Version:              1.1.0
  * Requires at least:    6.0
  * Requires PHP:         7.4
  * Requires Plugins:     woocommerce
@@ -20,7 +20,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'CODEX_CONNECTOR_VERSION', '1.0.0' );
+define( 'CODEX_CONNECTOR_VERSION', '1.1.0' );
 define( 'CODEX_CONNECTOR_DB_VERSION', '1' );
 define( 'CODEX_CONNECTOR_FILE', __FILE__ );
 define( 'CODEX_CONNECTOR_DIR', plugin_dir_path( __FILE__ ) );
@@ -189,6 +189,26 @@ final class Codex_Connector_Plugin {
 	 */
 	public static function iso( $time ) {
 		return gmdate( 'Y-m-d\TH:i:s\Z', (int) $time );
+	}
+
+	/**
+	 * The store's price decimals (WooCommerce → Settings → General): 2 for
+	 * SAR or EGP, 3 for KWD, 0 for IQD. Protocol v1.1 §5.
+	 *
+	 * @return int
+	 */
+	public static function price_decimals() {
+		return function_exists( 'wc_get_price_decimals' ) ? max( 0, (int) wc_get_price_decimals() ) : 2;
+	}
+
+	/**
+	 * A money string in the store currency with the store's decimals.
+	 *
+	 * @param float $amount Amount.
+	 * @return string "199.00", "12.345" or "25000"
+	 */
+	public static function money( $amount ) {
+		return number_format( (float) $amount, self::price_decimals(), '.', '' );
 	}
 }
 
