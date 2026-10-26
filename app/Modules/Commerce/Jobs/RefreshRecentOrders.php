@@ -14,6 +14,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Refunds and cancellations reach us only as updates to an order. Reconciliation
@@ -37,6 +38,13 @@ class RefreshRecentOrders implements ShouldQueue
 
     /** Pages per job: about 300 orders, a few seconds of platform calls. */
     public const PAGES_PER_JOB = 5;
+
+    /**
+     * Hard stop for the whole chain, so a platform that keeps reporting more
+     * pages cannot queue jobs forever: 400 pages is 24,000 Salla orders or
+     * 40,000 WooCommerce orders, far above any ICP store's month.
+     */
+    public const MAX_PAGES = 400;
 
     public int $tries = 10;
 
@@ -85,8 +93,16 @@ class RefreshRecentOrders implements ShouldQueue
             return;
         }
 
-        if ($window->next !== null) {
-            self::dispatch($this->tenantId, $window->next, $since);
+        if ($window->next === null) {
+            return;
         }
+
+        if ($window->next > self::MAX_PAGES) {
+            Log::warning('Order refresh stopped at its page limit.', ['tenant_id' => $this->tenantId, 'pages' => self::MAX_PAGES]);
+
+            return;
+        }
+
+        self::dispatch($this->tenantId, $window->next, $since);
     }
 }

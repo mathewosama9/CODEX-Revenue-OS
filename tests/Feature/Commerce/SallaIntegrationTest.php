@@ -367,6 +367,17 @@ it('re-reads orders in short jobs that keep one window across pages', function (
     Queue::assertPushed(RefreshRecentOrders::class, fn (RefreshRecentOrders $job) => $job->page === RefreshRecentOrders::PAGES_PER_JOB + 1 && $job->since !== null);
 });
 
+it('stops the order refresh at its page limit, however many pages the platform reports', function () {
+    $tenant = installStore();
+    overrideSalla(['api.salla.dev/admin/v2/orders*' => ['data' => [], 'pagination' => ['totalPages' => 100_000]]]);
+    Queue::fake();
+
+    $lastJob = new RefreshRecentOrders($tenant, RefreshRecentOrders::MAX_PAGES - RefreshRecentOrders::PAGES_PER_JOB + 1);
+    asTenant($tenant, fn () => app()->call([$lastJob, 'handle']));
+
+    Queue::assertNotPushed(RefreshRecentOrders::class);
+});
+
 function sallaProduct(string $id, string $name, array $overrides = []): array
 {
     return $overrides + [
