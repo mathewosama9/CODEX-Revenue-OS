@@ -14,7 +14,8 @@
 - **P0a** شغالة: المقابلات والمنصات في `docs/phases/P0/`، والحالة في `STATUS.md`.
 - **Sprint S0** (الأساس): Laravel 13، PostgreSQL، طبقة العزل بين التجار، وثيم البراند.
 - **P1 Backend** و**P2 الواجهة (Next.js في `web/`)** خلصوا ومدموجين في `main`. وبعدها 4 sessions صلّحت كل مشاكل المراجعة ([قائمة المشاكل](docs/reviews/2026-10-25-p1-p2-issues.md)).
-- **P3 الـAI Sales Agent** (E09/E10/E11/E12b) متبني على `feat/P3-ai-agent`: Claude Haiku 5.5 بس ورا `AiGateway` ([ADR-007](docs/adr/ADR-007-ai-orchestration.md))، والـPII في [ADR-008](docs/adr/ADR-008-pii-and-llm.md). Assisted بس. مفيش key مدفوع اتستخدم، وتشغيل الـgolden set live مستني موافقة المؤسس. التفاصيل والقرارات المستنية في `STATUS.md`.
+- **P3 الـAI Sales Agent** (E09/E10/E11/E12b): Claude Haiku 5.5 للإنتاج ورا `AiGateway` ([ADR-007](docs/adr/ADR-007-ai-orchestration.md))، والـPII في [ADR-008](docs/adr/ADR-008-pii-and-llm.md). Assisted بس. اتجرّب live على DeepSeek بس (تجربة)، وHaiku لسه متجربش.
+- **بعد P3 (branches متراكبة، آخرهم `feat/multi-currency`):** الموقع التسويقي + «نظرة عامة» (`docs/website/site-plan.md`)، وربط **WooCommerce** للتجربة + plugin «CODEX Connector» (`docs/integrations/woocommerce-connector.md`)، و**تعدد العملات** (كل عملات الوطن العربي + الدولار، عملة ومنطقة زمنية لكل مساحة، [ADR-012](docs/adr/ADR-012-multi-currency.md)). متجر المؤسس rahaf.shop (جنيه) مربوط محليًا للتجربة.
 - **Gate 0** لسه قايمة: مفيش تاجر حقيقي يتربط قبل ما ≥5 يدفعوا Proof Pilot.
 
 ## Critical Rules (بالنص من البرومبت الأصلي)
@@ -61,7 +62,7 @@
 ## الكود: قواعد لازم تتّبع
 - **Tenant = Team.** أي model فيه بيانات تاجر لازم يستخدم `App\Shared\Tenancy\BelongsToTenant` ويبقى فيه `tenant_id`. أي job بيلمس بيانات تاجر يستخدم `TenantAware` ومعاه `public int $tenantId`. الـtenant بييجي من السيرفر بس، ولو مش موجود الـquery بتفشل.
 - الـModules في `app/Modules/*` وقواعدها في `app/Modules/README.md`، ومفروضة بـ`tests/Arch`.
-- الفلوس بالهللة (integer)، والوقت UTC، والـquiet hours بتوقيت `Asia/Riyadh`.
+- الفلوس integer بأصغر وحدة لعملة المساحة (الأعمدة اسمها `*_halalas` تاريخيًا، [ADR-012](docs/adr/ADR-012-multi-currency.md))، ومن string لـinteger عن طريق `Currency::toMinor` بس، ممنوع float. الوقت UTC، والـquiet hours والتقارير بتوقيت المساحة (`WorkspaceLocale`).
 - البراند: ألوان الثيم في `web/src/app/globals.css`، ومكوّنات البراند في `web/src/components/brand/`. **الأصفر للفلوس بس** (`bg-revenue` / `text-revenue-ink`)، ورقم أصفر واحد في الشاشة. Navy هو الثيم الافتراضي. أرقام لاتيني، والعملة «ر.س».
 
 ## التشغيل محليًا
