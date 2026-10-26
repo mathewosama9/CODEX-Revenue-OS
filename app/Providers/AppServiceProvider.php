@@ -33,6 +33,7 @@ use App\Modules\SalesAgent\ReplyConsent;
 use App\Modules\SalesAgent\Toolbox;
 use App\Shared\Phone\SubjectHasher;
 use App\Shared\Tenancy\TenantContext;
+use App\Shared\Tenancy\WorkspaceLocale;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -52,6 +53,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Scoped: reset between requests and between queued jobs, so a tenant never leaks across them.
         $this->app->scoped(TenantContext::class);
+        $this->app->scoped(WorkspaceLocale::class);
 
         $this->app->singleton(SubjectHasher::class, fn () => new SubjectHasher(
             (string) config('codex.subject_hash_key'),
@@ -79,9 +81,9 @@ class AppServiceProvider extends ServiceProvider
             $app->make(AuditLogger::class),
         ));
 
-        $this->app->bind(CostLedger::class, fn () => new CostLedger(
+        $this->app->bind(CostLedger::class, fn ($app) => new CostLedger(
             (array) config('codex.meta_rates_usd'),
-            (float) config('codex.usd_to_sar'),
+            $app->make(WorkspaceLocale::class),
         ));
 
         $this->app->bind(ProfitReport::class, fn ($app) => new ProfitReport(
@@ -90,8 +92,9 @@ class AppServiceProvider extends ServiceProvider
             $app->make(MarginLookup::class),
             (int) config('codex.measurement.outcome_window_days'),
             (int) config('codex.measurement.attribution_window_hours'),
-            (int) config('codex.measurement.mde_halalas_per_subject'),
+            (float) config('codex.measurement.mde_usd_per_subject'),
             (string) config('codex.measurement.method_version'),
+            $app->make(WorkspaceLocale::class),
         ));
 
         $this->app->bind(AiGateway::class, fn ($app) => new AiGateway(
@@ -118,7 +121,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AgentControls::class, fn ($app) => new AgentControls(
             $app->make(AuditLogger::class),
             (int) round((float) config('codex.ai.default_daily_cap_usd') * 1_000_000),
-            (int) config('codex.ai.handoff_cart_halalas'),
+            (float) config('codex.ai.handoff_cart_usd'),
+            $app->make(WorkspaceLocale::class),
         ));
 
         $this->app->bind(ReplyConsent::class, fn ($app) => new ReplyConsent(
@@ -133,14 +137,17 @@ class AppServiceProvider extends ServiceProvider
             $app->make(KnowledgeRetriever::class),
             $app->make(Commerce::class),
             (int) config('codex.ai.price_max_age_minutes'),
+            $app->make(WorkspaceLocale::class),
         ));
         $this->app->bind(KnowledgeRetriever::class, KnowledgeBase::class);
 
-        $this->app->singleton(QuietHours::class, fn () => new QuietHours(
+        // Scoped like WorkspaceLocale: the hours are local to the current workspace.
+        $this->app->scoped(QuietHours::class, fn ($app) => new QuietHours(
             config('codex.quiet_hours.timezone'),
             config('codex.quiet_hours.default'),
             config('codex.quiet_hours.ramadan'),
             config('codex.quiet_hours.ramadan_periods'),
+            $app->make(WorkspaceLocale::class),
         ));
     }
 

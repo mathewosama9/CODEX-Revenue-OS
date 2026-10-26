@@ -102,6 +102,11 @@ class WooWebhookHandler implements WebhookHandler
      */
     private function cartUpdated(array $data): void
     {
+        // Never mix currencies in one workspace (ADR-012): logged and skipped.
+        if (! $this->mapper->inWorkspaceCurrency($data, 'cart')) {
+            return;
+        }
+
         $this->checkoutConsent->record($data);
         $this->recorder->recordAbandonedCart($this->mapper->cart($data), DiscoveredBy::Webhook);
     }

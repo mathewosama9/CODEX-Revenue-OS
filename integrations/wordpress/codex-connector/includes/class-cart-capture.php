@@ -280,20 +280,68 @@ final class Codex_Connector_Cart_Capture {
 
 	/**
 	 * @param float $amount Amount.
-	 * @return string "199.00"
+	 * @return string "199.00" (the store's price decimals)
 	 */
 	private static function money( $amount ) {
-		return number_format( (float) $amount, 2, '.', '' );
+		return Codex_Connector_Plugin::money( $amount );
 	}
 
 	/**
-	 * Normalize to E.164, assuming Saudi Arabia (+966) for local formats.
-	 * Accepts Arabic-Indic digits. Returns null when invalid.
+	 * Arab countries: calling code and the national mobile pattern (without
+	 * the trunk 0). A local number is read in the customer's billing country,
+	 * else the store's country.
 	 *
-	 * @param string $raw Phone as typed.
+	 * @var array<string, array{0: string, 1: string}>
+	 */
+	const MOBILE = array(
+		'SA' => array( '966', '5\d{8}' ),
+		'EG' => array( '20', '1[0125]\d{8}' ),
+		'AE' => array( '971', '5\d{8}' ),
+		'KW' => array( '965', '[569]\d{7}' ),
+		'QA' => array( '974', '[3567]\d{7}' ),
+		'BH' => array( '973', '[36]\d{7}' ),
+		'OM' => array( '968', '[79]\d{7}' ),
+		'JO' => array( '962', '7[789]\d{7}' ),
+		'IQ' => array( '964', '7\d{9}' ),
+		'LB' => array( '961', '(?:3\d{6}|7[01689]\d{6}|81\d{6})' ),
+		'SY' => array( '963', '9\d{8}' ),
+		'PS' => array( '970', '5[69]\d{7}' ),
+		'YE' => array( '967', '7\d{8}' ),
+		'MA' => array( '212', '[67]\d{8}' ),
+		'DZ' => array( '213', '[567]\d{8}' ),
+		'TN' => array( '216', '[2-9]\d{7}' ),
+		'LY' => array( '218', '9[1-6]\d{7}' ),
+		'SD' => array( '249', '[19]\d{8}' ),
+		'MR' => array( '222', '[234]\d{7}' ),
+	);
+
+	/**
+	 * The customer's country for reading a local number: billing, then shipping, then the store's.
+	 *
+	 * @return string ISO 3166-1 alpha-2.
+	 */
+	public static function phone_country() {
+		$customer = function_exists( 'WC' ) && WC()->customer ? WC()->customer : null;
+		$country  = $customer ? (string) $customer->get_billing_country() : '';
+		if ( '' === $country && $customer ) {
+			$country = (string) $customer->get_shipping_country();
+		}
+		if ( '' === $country && function_exists( 'WC' ) && WC()->countries ) {
+			$country = (string) WC()->countries->get_base_country();
+		}
+		return strtoupper( $country );
+	}
+
+	/**
+	 * Any typed phone → E.164, or null. Local numbers ("010…", "05…") use the
+	 * country's calling code; known Arab countries must be mobiles. Accepts
+	 * Arabic-Indic digits.
+	 *
+	 * @param string      $raw     As typed.
+	 * @param string|null $country ISO country for local numbers; null = phone_country().
 	 * @return string|null
 	 */
-	public static function normalize_phone( $raw ) {
+	public static function normalize_phone( $raw, $country = null ) {
 		$raw = strtr(
 			(string) $raw,
 			array(
@@ -314,21 +362,29 @@ final class Codex_Connector_Cart_Capture {
 		}
 
 		if ( ! $plus ) {
-			if ( preg_match( '/^05\d{8}$/', $d ) ) {          // 05xxxxxxxx
-				$d = '966' . substr( $d, 1 );
-			} elseif ( preg_match( '/^5\d{8}$/', $d ) ) {     // 5xxxxxxxx
-				$d = '966' . $d;
-			} elseif ( ! preg_match( '/^9665\d{8}$/', $d ) ) { // 9665xxxxxxxx is kept as is.
-				return null;
+			$country = strtoupper( null === $country ? self::phone_country() : (string) $country );
+			if ( ! isset( self::MOBILE[ $country ] ) ) {
+				return null; // Unknown country: only full international numbers.
 			}
+			list( $code, $mobile ) = self::MOBILE[ $country ];
+			$national = ltrim( $d, '0' );
+			// Typed with the country code but no "+" (e.g. 9665…, 2010…).
+			if ( 0 === strpos( $d, $code ) && preg_match( '/^' . $mobile . '$/', substr( $d, strlen( $code ) ) ) ) {
+				$national = substr( $d, strlen( $code ) );
+			}
+			$d = $code . $national;
 		}
 
-		// Saudi numbers must be mobiles (+9665xxxxxxxx); allow a stray trunk 0 (+96605…).
-		if ( 0 === strpos( $d, '966' ) ) {
-			if ( preg_match( '/^96605\d{8}$/', $d ) ) {
-				$d = '966' . substr( $d, 4 );
+		// A known Arab country code must be followed by a mobile; allow a stray trunk 0 (+96605…, +2001…).
+		foreach ( self::MOBILE as $rule ) {
+			list( $code, $mobile ) = $rule;
+			if ( 0 === strpos( $d, $code ) ) {
+				$national = substr( $d, strlen( $code ) );
+				if ( 0 === strpos( $national, '0' ) ) {
+					$national = substr( $national, 1 );
+				}
+				return preg_match( '/^' . $mobile . '$/', $national ) ? '+' . $code . $national : null;
 			}
-			return preg_match( '/^9665\d{8}$/', $d ) ? '+' . $d : null;
 		}
 
 		return preg_match( '/^[1-9]\d{7,14}$/', $d ) ? '+' . $d : null;

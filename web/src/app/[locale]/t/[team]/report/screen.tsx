@@ -16,15 +16,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { format, useI18n } from '@/i18n';
 import { getData } from '@/lib/api';
-import { formatSar } from '@/lib/money';
+import { formatMoney } from '@/lib/money';
 import { useHref, useTeam } from '@/lib/session';
-import { formatDate, riyadhToday, shiftDate } from '@/lib/time';
+import { formatDate, shiftDate, workspaceToday } from '@/lib/time';
 import type { Interval, ProfitReport, Snapshot } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-/** The last 28 days in Riyadh, today included (matches the API default). */
-function defaultPeriod() {
-    const to = riyadhToday();
+/** The last 28 days on the workspace clock, today included (matches the API default). */
+function defaultPeriod(timeZone: string) {
+    const to = workspaceToday(timeZone);
 
     return { from: shiftDate(to, -27), to };
 }
@@ -34,8 +34,8 @@ const percent = (value: number | null) =>
 
 export default function ReportPage() {
     const { t } = useI18n();
-    const { path, slug, can } = useTeam();
-    const [draft, setDraft] = useState(defaultPeriod);
+    const { path, slug, can, timezone } = useTeam();
+    const [draft, setDraft] = useState(() => defaultPeriod(timezone));
     const [period, setPeriod] = useState(draft);
 
     const report = useQuery({
@@ -85,7 +85,7 @@ export default function ReportPage() {
                         className="font-numeric"
                         value={draft.to}
                         min={draft.from}
-                        max={riyadhToday()}
+                        max={workspaceToday(timezone)}
                         onChange={(event) =>
                             setDraft({ ...draft, to: event.target.value })
                         }
@@ -131,7 +131,7 @@ function ReportBody({
 }) {
     const { t, locale } = useI18n();
     const href = useHref();
-    const { slug } = useTeam();
+    const { slug, currency } = useTeam();
 
     if (report.status === 'frozen') {
         return (
@@ -200,7 +200,7 @@ function ReportBody({
                         {t.report.attributed}
                     </span>
                     <span className="font-numeric text-xl font-semibold tabular-nums">
-                        {formatSar(report.attributed_revenue_halalas, locale)}
+                        {formatMoney(report.attributed_revenue_halalas, currency, locale)}
                     </span>
                     <p className="text-[13px] text-muted-foreground">
                         {t.report.attributedHelp}
@@ -209,7 +209,7 @@ function ReportBody({
                 {/* 3. What it cost. */}
                 <KpiCard
                     label={t.report.costs}
-                    value={formatSar(report.costs_halalas.total, locale)}
+                    value={formatMoney(report.costs_halalas.total, currency, locale)}
                     footer={
                         <div className="flex flex-col gap-2">
                             {/* The profit range already subtracts these: say so, or they get subtracted twice (review H10). */}
@@ -229,7 +229,7 @@ function ReportBody({
                                                     kind}
                                             </span>
                                             <span className="font-numeric tabular-nums">
-                                                {formatSar(amount, locale)}
+                                                {formatMoney(amount, currency, locale)}
                                             </span>
                                         </li>
                                     ))}
@@ -275,6 +275,7 @@ function Estimate({
     isMoney?: boolean;
 }) {
     const { t, locale } = useI18n();
+    const { currency } = useTeam();
 
     if (
         interval.low === null ||
@@ -298,6 +299,7 @@ function Estimate({
             label={label}
             low={interval.low}
             high={interval.high}
+            currency={currency}
             winProbability={interval.win_probability}
             verdict={interval.verdict}
             verdictLabel={t.report.verdictLabel[interval.verdict]}
@@ -310,6 +312,8 @@ function Estimate({
 
 function SnapshotList({ items }: { items: Snapshot[] }) {
     const { t, locale } = useI18n();
+    const { currency } = useTeam();
+    const whole = { whole: currency.exponent < 3 };
 
     return (
         <ul className="divide-y text-sm" data-testid="report-snapshots">
@@ -340,8 +344,8 @@ function SnapshotList({ items }: { items: Snapshot[] }) {
                                     dir="ltr"
                                     className="font-numeric tabular-nums"
                                 >
-                                    {formatSar(profit.low, locale)} –{' '}
-                                    {formatSar(profit.high, locale)}
+                                    {formatMoney(profit.low, currency, locale, whole)} –{' '}
+                                    {formatMoney(profit.high, currency, locale, whole)}
                                 </span>
                                 <span className="text-muted-foreground">
                                     {t.report.verdict[profit.verdict]}

@@ -1,4 +1,6 @@
-// Response shapes of the Laravel API (routes/api/tenant.php). Money is in halalas.
+// Response shapes of the Laravel API (routes/api/tenant.php). Money (`*_halalas`, a
+// historic name) is integer minor units of the workspace currency: useTeam().currency
+// gives its code and exponent (ADR-012).
 
 export type Checklist = Record<
     | 'store_connected'
@@ -186,7 +188,8 @@ export type AgentSettings = {
     daily_cap_usd: number;
     max_daily_cap_usd: number;
     spent_today_usd: number;
-    handoff_cart_sar: number | null;
+    /** Major units of the workspace currency, an exact decimal string ("1500.00", "12.345"). */
+    handoff_cart: string | null;
     assisted_days: number;
     assisted_days_required: number;
     autonomy_blockers: string[];

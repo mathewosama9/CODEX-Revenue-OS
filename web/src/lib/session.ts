@@ -6,6 +6,7 @@ import { useCallback } from 'react';
 
 import { useI18n } from '@/i18n';
 import { api, ApiError, ensureCsrf, getData, REDIRECTED } from '@/lib/api';
+import { SAR } from '@/lib/money';
 
 /** Mirrors App\Enums\TeamPermission. */
 export type Permission =
@@ -27,11 +28,24 @@ export type Permission =
     | 'knowledge:manage'
     | (string & {});
 
+/** A workspace's currency (ADR-012): money from the API is integer minor units of it. */
+export type WorkspaceCurrency = {
+    /** ISO 4217, e.g. "SAR", "EGP", "KWD". */
+    code: string;
+    /** Minor digits: 2 for SAR/EGP, 3 for KWD, 0 for IQD. */
+    exponent: number;
+    symbol_ar: string;
+    symbol_en: string;
+};
+
 export type TeamMembership = {
     slug: string;
     name: string;
     role: 'owner' | 'agent';
     permissions: Permission[];
+    currency: WorkspaceCurrency;
+    /** IANA timezone, e.g. "Asia/Riyadh", "Africa/Cairo". */
+    timezone: string;
 };
 
 export type Me = {
@@ -75,6 +89,10 @@ export function useTeam() {
         slug: params.team,
         team,
         me,
+        /** Money in this workspace is minor units of it (ADR-012); riyals until /me loads. */
+        currency: team?.currency ?? SAR,
+        /** The merchant's clock (IANA), for dates and "today" (ADR-012). */
+        timezone: team?.timezone ?? 'Asia/Riyadh',
         can: (permission: Permission) =>
             team?.permissions.includes(permission) ?? false,
         /** Tenant API path: /teams/{slug}/... */

@@ -6,7 +6,7 @@ Tested up to: 6.8
 Requires PHP: 7.4
 WC requires at least: 8.0
 WC tested up to: 9.9
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -52,6 +52,10 @@ Features:
 الخصوصية: لا يغادر رقم الجوال ولا السلة موقعك إلا إذا حدد العميل خانة الموافقة. تُحذف السلات المحفوظة تلقائيًا بعد 30 يومًا.
 
 == Changelog ==
+
+= 1.1.0 =
+* Connector protocol v1.1: amounts use the store's price decimals (3 for KWD, 0 for IQD), any currency CODEX supports, and the ping reports the site timezone.
+* Removed the "store currency is not SAR" warning.
 
 = 1.0.0 =
 * First release (connector protocol v1).

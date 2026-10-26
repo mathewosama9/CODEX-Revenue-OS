@@ -12,6 +12,7 @@ use App\Modules\SalesAgent\Tools\GetProduct;
 use App\Modules\SalesAgent\Tools\Handoff;
 use App\Modules\SalesAgent\Tools\RunContext;
 use App\Modules\SalesAgent\Tools\SearchProducts;
+use App\Shared\Tenancy\WorkspaceLocale;
 
 /**
  * Every tool the agent may call, by name. Rule 9: no discount, coupon,
@@ -27,6 +28,7 @@ final class Toolbox
         private readonly KnowledgeRetriever $knowledge,
         private readonly Commerce $commerce,
         private readonly int $priceMaxAgeMinutes,
+        private readonly WorkspaceLocale $locale,
     ) {}
 
     /**
@@ -36,7 +38,7 @@ final class Toolbox
     {
         $tools = [
             new SearchProducts($this->search, $this->commerce),
-            new GetProduct($this->commerce, $this->priceMaxAgeMinutes),
+            new GetProduct($this->commerce, $this->priceMaxAgeMinutes, $this->locale->currency()),
             new GetPolicy($this->knowledge, $context),
             new GetCartLink($this->commerce, $context),
             new Handoff($context),

@@ -7,7 +7,7 @@ import { PageHeader } from '@/components/page-header';
 import { QueryState } from '@/components/query-state';
 import { Button } from '@/components/ui/button';
 import { format, useI18n } from '@/i18n';
-import { formatSar } from '@/lib/money';
+import { formatMoney } from '@/lib/money';
 import { ApiError, getData, sendData } from '@/lib/api';
 import { useTeam } from '@/lib/session';
 import { formatDateTime, formatRelative } from '@/lib/time';
@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 
 export default function ApprovalsPage() {
     const { t, locale } = useI18n();
-    const { path, slug } = useTeam();
+    const { path, slug, currency, timezone } = useTeam();
     const client = useQueryClient();
     const [notice, setNotice] = useState<string | null>(null);
     // Re-render every 30s so "expires in N minutes" counts down (review L8).
@@ -88,11 +88,11 @@ export default function ApprovalsPage() {
                                                     {t.approvals.cart} <span className="font-numeric">#{approval.cart_id}</span>
                                                 </>
                                             ) : (
-                                                format(t.approvals.cartWorth, { amount: formatSar(approval.cart_total_halalas, locale) })
+                                                format(t.approvals.cartWorth, { amount: formatMoney(approval.cart_total_halalas, currency, locale) })
                                             )}
                                             {' · '}
                                             {t.approvals.expires}{' '}
-                                            <time dateTime={approval.expires_at} title={formatDateTime(approval.expires_at, locale)}>
+                                            <time dateTime={approval.expires_at} title={formatDateTime(approval.expires_at, locale, timezone)}>
                                                 {formatRelative(approval.expires_at, locale)}
                                             </time>
                                         </span>

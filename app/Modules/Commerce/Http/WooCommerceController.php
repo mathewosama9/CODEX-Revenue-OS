@@ -36,11 +36,13 @@ class WooCommerceController
 
             $field = in_array($exception->reason, [WooConnectFailed::BAD_KEYS], true) ? 'consumer_key' : 'site_url';
 
+            $message = __('woocommerce.'.$exception->reason, $exception->replace);
+
             return response()->json([
-                'message' => __('woocommerce.'.$exception->reason),
+                'message' => $message,
                 'reason' => $exception->reason,
-                'errors' => [$field => [__('woocommerce.'.$exception->reason)]],
-            ], in_array($exception->reason, [WooConnectFailed::OTHER_WORKSPACE, WooConnectFailed::OTHER_PLATFORM], true) ? 409 : 422);
+                'errors' => [$field => [$message]],
+            ], in_array($exception->reason, [WooConnectFailed::OTHER_WORKSPACE, WooConnectFailed::OTHER_PLATFORM, WooConnectFailed::CURRENCY_MISMATCH], true) ? 409 : 422);
         }
 
         return $this->secretResponse($connection, 201);

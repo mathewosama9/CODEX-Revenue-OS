@@ -26,19 +26,38 @@ return [
         'outcome_window_days' => 7,
         'attribution_window_hours' => 72,
         // Smallest effect per assigned customer worth detecting, for the
-        // "we need ~X more carts" message. [افتراض] — set after P0 interviews.
-        'mde_halalas_per_subject' => 500,
+        // "we need ~X more carts" message, in USD and converted to the
+        // workspace currency (ADR-012). 5 SAR / 3.75 so a SAR workspace keeps
+        // exactly 500 halalas. [افتراض] — set after P0 interviews.
+        'mde_usd_per_subject' => 5.00 / 3.75,
         'method_version' => '1.0',
     ],
 
     /*
-    | Meta per-message rates in USD by recipient country and category, from
-    | 2026-10-01 (spine §7.2 [مؤكدة، ثانوي]). Update when Meta changes them.
+    | Meta per-message rates in USD by recipient country (ISO, from the phone's
+    | calling code) and category, from 2026-10-01. Converted to the workspace
+    | currency at its usd_rate (config/currencies.php, ADR-012).
+    | A country set to null has no sourced price yet: its messages are booked
+    | at the highest sourced rate for the category and marked estimated.
     */
     'meta_rates_usd' => [
+        // spine §7.2 [مؤكدة، ثانوي]. Update when Meta changes them.
         'SA' => ['marketing' => 0.0576, 'utility' => 0.0107, 'authentication' => 0.0107, 'service' => 0.0107],
+        // [افتراض: needs Meta pricing page] Fill in from Meta's official rate card, then drop the estimate.
+        'EG' => null,
+        'AE' => null,
+        'KW' => null,
+        'QA' => null,
+        'BH' => null,
+        'OM' => null,
+        'JO' => null,
+        'IQ' => null,
+        'LB' => null,
+        'MA' => null,
+        'DZ' => null,
+        'TN' => null,
+        'LY' => null,
     ],
-    'usd_to_sar' => 3.75,
 
     /*
     | AiGateway (E10, ADR-007). One model, chosen by the founder 2026-10-25:
@@ -69,8 +88,9 @@ return [
         // Founder 2026-10-25: the AI answers a customer who wrote first unless they opted out.
         // true = also require documented marketing consent (the stricter P3 brief). [افتراض قانوني]
         'reply_requires_marketing_consent' => (bool) env('CODEX_AI_REPLY_REQUIRES_CONSENT', false),
-        // A cart this big goes to a person before the AI answers (09 §9.11.3). [اقتراح] 1,500 SAR.
-        'handoff_cart_halalas' => 150_000,
+        // A cart this big goes to a person before the AI answers (09 §9.11.3). [اقتراح] 1,500 SAR,
+        // set in USD and converted to the workspace currency (ADR-012): 400 USD = exactly 150,000 halalas.
+        'handoff_cart_usd' => 400.00,
         'embeddings' => [
             // Off: search runs on text alone (tests, and any env without a Voyage key).
             'enabled' => (bool) env('CODEX_EMBEDDINGS_ENABLED', true),
@@ -94,8 +114,11 @@ return [
 
     /*
     | Promotional quiet hours (CST anti-spam rules, applied to WhatsApp by
-    | default — spine §7.5). Times are local to `timezone`; a window whose
-    | start is after its end crosses midnight.
+    | default — spine §7.5). Times are local to the workspace timezone
+    | (WorkspaceLocale, ADR-012); `timezone` is only the fallback outside a
+    | tenant. A window whose start is after its end crosses midnight.
+    | [افتراض] The same hours and Ramadan dates apply in every country until
+    | each market's rules are checked.
     */
     'quiet_hours' => [
         'timezone' => 'Asia/Riyadh',

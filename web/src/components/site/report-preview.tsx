@@ -1,8 +1,8 @@
 import { RangeEstimate } from '@/components/brand/range-estimate';
-import { formatSar } from '@/lib/money';
+import { formatSar, SAR } from '@/lib/money';
 import { getSite } from '@/i18n/site/server';
 
-// Sample figures in halalas, consistent with each other: incremental revenue × ~40% margin − cost ≈ profit.
+// The site stays in riyals (the Pilot is priced in SAR). Sample figures in halalas, consistent with each other: incremental revenue × ~40% margin − cost ≈ profit.
 // Never real data: the card always carries the "illustrative example" badge.
 const SAMPLE = {
     profitLow: 120_000,
@@ -43,6 +43,7 @@ export async function ReportPreview() {
                 label={r.incrementalProfit}
                 low={SAMPLE.profitLow}
                 high={SAMPLE.profitHigh}
+                currency={SAR}
                 winProbability={SAMPLE.winProbability}
                 verdict="helpful"
                 verdictLabel={r.verdict}

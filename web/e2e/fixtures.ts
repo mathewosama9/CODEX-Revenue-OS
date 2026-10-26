@@ -16,6 +16,17 @@ export function reseed() {
     });
 }
 
+/**
+ * Turns the demo workspace into a store in another currency and timezone (ADR-012),
+ * after reseed(). The seeded amounts keep their minor units: 42000 reads "420 ج.م".
+ */
+export function setWorkspaceCurrency(currency: string, timezone: string) {
+    execSync(
+        `php artisan tinker --execute="App\\Models\\Team::query()->where('is_personal', false)->update(['currency' => '${currency}', 'timezone' => '${timezone}']);"`,
+        { cwd: '..', env: { ...process.env, DB_DATABASE: 'codex_e2e' }, stdio: 'ignore' },
+    );
+}
+
 export const test = base.extend<{ lang: 'ar' | 'en'; t: Dictionary }>({
     lang: ['ar', { option: true }],
     t: async ({ lang }, use) => use(lang === 'ar' ? ar : en),

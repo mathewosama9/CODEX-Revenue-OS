@@ -93,10 +93,6 @@ msgstr "اتركه فارغًا لاستخدام النص الافتراضي (ب
 msgid "You do not have permission to access this page."
 msgstr "ليست لديك صلاحية للوصول إلى هذه الصفحة."
 
-#: includes/class-settings.php:262
-msgid "Your store currency is not SAR. CODEX only supports stores in Saudi riyals."
-msgstr "عملة متجرك ليست الريال السعودي (SAR). يدعم CODEX المتاجر بالريال السعودي فقط."
-
 #: includes/class-settings.php:274 includes/class-settings.php:287
 msgid "Test connection"
 msgstr "اختبر الاتصال"

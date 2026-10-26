@@ -6,6 +6,7 @@ use App\Modules\Compliance\ActorType;
 use App\Modules\Compliance\AuditLogger;
 use App\Modules\SalesAgent\Models\AgentSettings;
 use App\Modules\SalesAgent\Models\ReplyDraft;
+use App\Shared\Tenancy\WorkspaceLocale;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 
@@ -24,16 +25,28 @@ class AgentControls
     public function __construct(
         private readonly AuditLogger $audit,
         private readonly int $defaultCapUsdMicros,
-        private readonly int $defaultHandoffCartHalalas,
+        private readonly float $defaultHandoffCartUsd,
+        private readonly WorkspaceLocale $locale,
     ) {}
 
     public function settings(): AgentSettings
     {
+        // No handoff_cart_halalas: null means "the default", converted when read, so a
+        // workspace whose currency is set later (store connect) still gets the right one.
         return AgentSettings::query()->firstOrCreate([], [
             'mode' => AgentMode::Off,
             'daily_cap_usd_micros' => $this->defaultCapUsdMicros,
-            'handoff_cart_halalas' => $this->defaultHandoffCartHalalas,
         ]);
+    }
+
+    /**
+     * The cart value that goes to a person, in minor units of the workspace
+     * currency (ADR-012): the merchant's own, else the dollar default converted.
+     */
+    public function handoffCartMinor(?AgentSettings $settings = null): int
+    {
+        return ($settings ?? $this->settings())->handoff_cart_halalas
+            ?? $this->locale->currency()->minorFromUsd($this->defaultHandoffCartUsd);
     }
 
     public function defaultCapUsdMicros(): int
@@ -43,8 +56,9 @@ class AgentControls
 
     /**
      * The merchant may lower the cap, never raise it above CODEX's default.
+     * The cart threshold is in minor units of the workspace currency.
      */
-    public function updateLimits(int $userId, ?int $dailyCapUsdMicros, ?int $handoffCartHalalas): AgentSettings
+    public function updateLimits(int $userId, ?int $dailyCapUsdMicros, ?int $handoffCartMinor): AgentSettings
     {
         $settings = $this->settings();
 
@@ -54,12 +68,13 @@ class AgentControls
 
         $settings->update(array_filter([
             'daily_cap_usd_micros' => $dailyCapUsdMicros,
-            'handoff_cart_halalas' => $handoffCartHalalas,
+            'handoff_cart_halalas' => $handoffCartMinor,
         ], fn ($value) => $value !== null));
 
         $this->audit->record('ai.limits_updated', ActorType::User, $userId, subject: $settings, context: [
             'daily_cap_usd_micros' => $settings->daily_cap_usd_micros,
             'handoff_cart_halalas' => $settings->handoff_cart_halalas,
+            'currency' => $this->locale->currency()->code,
         ]);
 
         return $settings;

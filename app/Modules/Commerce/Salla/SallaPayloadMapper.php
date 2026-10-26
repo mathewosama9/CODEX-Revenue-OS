@@ -8,9 +8,15 @@ use App\Modules\Commerce\Data\LineItemData;
 use App\Modules\Commerce\Data\OrderData;
 use App\Modules\Commerce\Data\ProductData;
 use App\Modules\Commerce\Data\VariantData;
+use App\Shared\Money\Currencies;
+use App\Shared\Money\Currency;
+use App\Shared\Money\JsonAmount;
 use App\Shared\Phone\PhoneNumber;
+use App\Shared\Tenancy\WorkspaceLocale;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use Throwable;
 
 /**
@@ -20,9 +26,38 @@ use Throwable;
  *
  * [افتراض] Field shapes follow docs.salla.dev as read on 2026-10-21 and must be
  * confirmed against the demo store in the P0b spike.
+ *
+ * Amounts are read exactly into minor units of the workspace currency
+ * (ADR-012). Salla stores sell in SAR in practice; an amount object in
+ * another currency is logged and still read as the workspace's.
  */
 final class SallaPayloadMapper
 {
+    private ?Currency $fixed = null;
+
+    private ?int $tenantId = null;
+
+    /** Mappers run inside a tenant: the currency is the workspace's. */
+    public function __construct(private readonly ?WorkspaceLocale $locale = null) {}
+
+    /** The same mapper for a store's workspace, whether or not its tenant is current. */
+    public function forTenant(int $tenantId): self
+    {
+        $copy = clone $this;
+        $copy->tenantId = $tenantId;
+
+        return $copy;
+    }
+
+    /** The same mapper for a given currency (tests, tools without a tenant). */
+    public function withCurrency(Currency $currency): self
+    {
+        $copy = clone $this;
+        $copy->fixed = $currency;
+
+        return $copy;
+    }
+
     /**
      * @param  array<string, mixed>  $cart
      */
@@ -32,7 +67,7 @@ final class SallaPayloadMapper
             externalId: (string) Arr::get($cart, 'id'),
             customer: $this->customer(Arr::get($cart, 'customer')),
             totalHalalas: $this->halalas(Arr::get($cart, 'total')),
-            currency: $this->currency(Arr::get($cart, 'total')),
+            currency: $this->currencyOf(Arr::get($cart, 'total'), 'cart', Arr::get($cart, 'id')),
             checkoutUrl: $this->string(Arr::get($cart, 'urls.checkout') ?? Arr::get($cart, 'checkout_url')),
             items: array_map(fn (array $item) => $this->lineItem($item), $this->list(Arr::get($cart, 'items'))),
             abandonedAt: $this->date(Arr::get($cart, 'updated_at') ?? Arr::get($cart, 'created_at')),
@@ -53,7 +88,7 @@ final class SallaPayloadMapper
             totalHalalas: $this->halalas(Arr::get($order, 'amounts.total') ?? Arr::get($order, 'total')),
             discountHalalas: $this->discounts($order),
             shippingHalalas: $this->halalas(Arr::get($order, 'amounts.shipping_cost')),
-            currency: $this->currency(Arr::get($order, 'amounts.total') ?? Arr::get($order, 'total')),
+            currency: $this->currencyOf(Arr::get($order, 'amounts.total') ?? Arr::get($order, 'total'), 'order', Arr::get($order, 'id')),
             status: $status,
             paymentMethod: $this->string(Arr::get($order, 'payment_method')),
             couponCode: $this->string(Arr::get($order, 'coupon.code') ?? Arr::get($order, 'coupon')),
@@ -139,13 +174,27 @@ final class SallaPayloadMapper
         }, $this->list(Arr::get($product, 'skus')));
     }
 
+    /** 249.5, "249.50" or {"amount": 249.5} → minor units; null when there is no number. */
     private function money(mixed $amount): ?int
     {
         if (is_array($amount)) {
             $amount = $amount['amount'] ?? null;
         }
 
-        return is_numeric($amount) ? (int) round(((float) $amount) * 100) : null;
+        $decimal = JsonAmount::decimal($amount);
+
+        if ($decimal === null) {
+            return null;
+        }
+
+        try {
+            return $this->currency()->toMinor($decimal);
+        } catch (InvalidArgumentException) {
+            // Beyond a bigint: no price rather than a wrong one, and the sync goes on.
+            Log::warning('Store amount out of range ignored.', ['amount' => $decimal]);
+
+            return null;
+        }
     }
 
     /** Product descriptions are HTML; the search and the agent read text. */
@@ -217,16 +266,33 @@ final class SallaPayloadMapper
      */
     private function halalas(mixed $amount): int
     {
-        if (is_array($amount)) {
-            $amount = $amount['amount'] ?? 0;
-        }
-
-        return is_numeric($amount) ? (int) round(((float) $amount) * 100) : 0;
+        return $this->money($amount) ?? 0;
     }
 
-    private function currency(mixed $amount): string
+    /**
+     * The workspace currency. An amount object in another one is logged, not
+     * refused: the amounts are still stored as the workspace's minor units.
+     */
+    private function currencyOf(mixed $amount, string $kind, mixed $id): string
     {
-        return is_array($amount) && is_string($amount['currency'] ?? null) ? $amount['currency'] : 'SAR';
+        $workspace = $this->currency()->code;
+        $sent = is_array($amount) && is_string($amount['currency'] ?? null) ? strtoupper(trim($amount['currency'])) : null;
+
+        if ($sent !== null && $sent !== '' && $sent !== $workspace) {
+            Log::warning('Salla amount in another currency read as the workspace currency.', [
+                'kind' => $kind,
+                'id' => $this->string($id),
+                'currency' => $sent,
+                'workspace_currency' => $workspace,
+            ]);
+        }
+
+        return $workspace;
+    }
+
+    private function currency(): Currency
+    {
+        return $this->fixed ?? $this->locale?->currency($this->tenantId) ?? Currencies::get((string) config('currencies.default'));
     }
 
     /**

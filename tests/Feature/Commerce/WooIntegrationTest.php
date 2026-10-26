@@ -161,12 +161,14 @@ it('falls back to query-string keys when the host strips the Authorization heade
     wcConnect()->assertCreated();
 });
 
-it('refuses a store that is not in SAR', function () {
-    wcOverride(['shop.example.com/wp-json/wc/v3/system_status*' => ['settings' => ['currency' => 'USD']]]);
+it('refuses a store in a currency we do not support, and names the supported ones', function () {
+    wcOverride(['shop.example.com/wp-json/wc/v3/system_status*' => ['settings' => ['currency' => 'EUR']]]);
 
-    wcConnect()->assertStatus(422)->assertJsonPath('reason', 'currency');
+    $response = wcConnect()->assertStatus(422)->assertJsonPath('reason', 'currency');
 
-    expect(DB::table('store_connections')->count())->toBe(0);
+    expect($response->json('message'))->toContain('EUR')->toContain('EGP')->toContain('KWD')
+        ->and(DB::table('store_connections')->count())->toBe(0)
+        ->and($this->team->fresh()->currency)->toBe('SAR');
 });
 
 it('reads the currency without system_status rights', function () {
@@ -175,7 +177,99 @@ it('reads the currency without system_status rights', function () {
         'shop.example.com/wp-json/wc/v3/data/currencies/current*' => ['code' => 'EGP'],
     ]);
 
-    wcConnect()->assertStatus(422)->assertJsonPath('reason', 'currency');
+    wcConnect()->assertCreated();
+
+    expect($this->team->fresh()->currency)->toBe('EGP');
+});
+
+it('sets a new workspace to an Egyptian store\'s currency and timezone, and reads its prices in piastres', function () {
+    wcOverride([
+        'shop.example.com/wp-json/wc/v3/system_status*' => ['settings' => ['currency' => 'EGP']],
+        'shop.example.com/wp-json/wc/v3/products*' => [wcProduct(5, 'سلوبيت شتوي', ['price' => '345.50', 'regular_price' => '345.50'])],
+        'shop.example.com/wp-json/' => ['name' => 'رهف', 'timezone_string' => 'Africa/Cairo', 'gmt_offset' => 2],
+    ]);
+
+    wcConnect()->assertCreated();
+
+    $team = $this->team->fresh();
+    expect($team->currency)->toBe('EGP')
+        ->and($team->timezone)->toBe('Africa/Cairo')
+        ->and(DB::table('products')->where('tenant_id', $team->id)->value('price_halalas'))->toBe(34550);
+
+    $me = collect($this->actingAs($this->owner)->getJson('/api/v1/me')->json('data.teams'))->firstWhere('slug', $team->slug);
+    expect($me['currency'])->toBe(['code' => 'EGP', 'exponent' => 2, 'symbol_ar' => 'ج.م', 'symbol_en' => 'EGP'])
+        ->and($me['timezone'])->toBe('Africa/Cairo');
+});
+
+it('connects a Kuwaiti store with three decimals, timezone from a whole-hour offset', function () {
+    wcOverride([
+        'shop.example.com/wp-json/wc/v3/system_status*' => ['settings' => ['currency' => 'kwd']],
+        'shop.example.com/wp-json/wc/v3/products*' => [wcProduct(5, 'دهن عود', ['price' => '12.345', 'regular_price' => '12.345'])],
+        'shop.example.com/wp-json/' => ['name' => 'متجر الكويت', 'timezone_string' => '', 'gmt_offset' => 3],
+    ]);
+
+    wcConnect()->assertCreated();
+
+    $team = $this->team->fresh();
+    expect($team->currency)->toBe('KWD')
+        ->and($team->timezone)->toBe('Etc/GMT-3')
+        ->and(DB::table('products')->where('tenant_id', $team->id)->value('price_halalas'))->toBe(12345);
+});
+
+it('keeps the workspace timezone when the site gives none it can read', function () {
+    wcOverride([
+        'shop.example.com/wp-json/wc/v3/system_status*' => ['settings' => ['currency' => 'EGP']],
+        'shop.example.com/wp-json/' => ['name' => 'x', 'timezone_string' => 'Mars/Base', 'gmt_offset' => 5.5],
+    ]);
+
+    wcConnect()->assertCreated();
+
+    expect($this->team->fresh()->only(['currency', 'timezone']))->toBe(['currency' => 'EGP', 'timezone' => 'Asia/Riyadh']);
+});
+
+it('refuses a store in another currency once the workspace has data', function () {
+    wcConnect()->assertCreated(); // SAR, with products
+
+    wcOverride(['shop.example.com/wp-json/wc/v3/system_status*' => ['settings' => ['currency' => 'EGP']]]);
+
+    $response = wcConnect()->assertStatus(409)->assertJsonPath('reason', 'currency_mismatch');
+
+    expect($response->json('message'))->toContain('SAR')->toContain('EGP')
+        ->and($this->team->fresh()->currency)->toBe('SAR');
+
+    // The same currency reconnects.
+    wcOverride(['shop.example.com/wp-json/wc/v3/system_status*' => ['settings' => ['currency' => 'SAR']]]);
+    wcConnect()->assertCreated();
+});
+
+it('keeps the currency of a workspace with a live store on another platform, even before it has data', function () {
+    wcInTenant($this->team->id, fn () => StoreConnection::query()->create([
+        'provider' => TenantRoute::SALLA,
+        'external_store_id' => '9001',
+        'status' => 'active',
+    ]));
+    wcOverride([
+        'shop.example.com/wp-json/wc/v3/system_status*' => ['settings' => ['currency' => 'EGP']],
+        'shop.example.com/wp-json/' => ['name' => 'رهف', 'timezone_string' => 'Africa/Cairo'],
+    ]);
+
+    wcConnect()->assertStatus(409)->assertJsonPath('reason', 'other_platform');
+
+    expect($this->team->fresh()->only(['currency', 'timezone']))->toBe(['currency' => 'SAR', 'timezone' => 'Asia/Riyadh']);
+});
+
+it('skips plugin carts and orders in another currency than the workspace', function () {
+    wcConnect()->assertCreated();
+    $store = wcStore($this->team->id);
+    $adapter = app(WooAdapter::class);
+
+    wcOverride(['shop.example.com/wp-json/codex/v1/carts/c_usd*' => ['id' => 'c_usd', 'status' => 'open', 'currency' => 'USD', 'total' => '10.00']]);
+    wcOverride(['shop.example.com/wp-json/codex/v1/carts/c_sar*' => ['id' => 'c_sar', 'status' => 'open', 'currency' => 'SAR', 'total' => '10.00']]);
+    wcOverride(['shop.example.com/wp-json/wc/v3/orders/9*' => ['id' => 9, 'status' => 'processing', 'currency' => 'USD', 'total' => '10.00']]);
+
+    expect($adapter->abandonedCart($store, 'c_usd'))->toBeNull()
+        ->and($adapter->abandonedCart($store, 'c_sar')?->totalHalalas)->toBe(1000)
+        ->and($adapter->order($store, '9'))->toBeNull();
 });
 
 it('accepts only public https site addresses', function (string $url) {

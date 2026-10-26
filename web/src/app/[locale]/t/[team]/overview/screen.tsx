@@ -16,27 +16,27 @@ import { useSite } from '@/i18n/site/client';
 import { api, getData } from '@/lib/api';
 import { COMING_NEXT, FEATURES } from '@/lib/features';
 import { useHref, useTeam } from '@/lib/session';
-import { riyadhToday, shiftDate } from '@/lib/time';
+import { shiftDate, workspaceToday } from '@/lib/time';
 import type { AgentSettings, Approval, ConversationSummary, ProfitReport, Recovery, ReplyDraft, Usage } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 // Same keys and defaults as the screens the cards link to, so their caches are shared:
-// the report's 28 days in Riyadh (report/screen.tsx), the usage screen's month.
-function defaultPeriod() {
-    const to = riyadhToday();
+// the report's 28 days on the workspace clock (report/screen.tsx), the usage screen's month.
+function defaultPeriod(timeZone: string) {
+    const to = workspaceToday(timeZone);
 
     return { from: shiftDate(to, -27), to };
 }
 
-const thisMonth = () => riyadhToday().slice(0, 7);
+const thisMonth = (timeZone: string) => workspaceToday(timeZone).slice(0, 7);
 const count = new Intl.NumberFormat('en-US');
 const usd = (value: number) => `$${value.toFixed(2)}`;
 
 export default function OverviewPage() {
     const { t } = useI18n();
-    const { path, slug, can } = useTeam();
-    const [period] = useState(defaultPeriod);
-    const [month] = useState(thisMonth);
+    const { path, slug, can, timezone } = useTeam();
+    const [period] = useState(() => defaultPeriod(timezone));
+    const [month] = useState(() => thisMonth(timezone));
 
     // Only what this member may see is fetched; the API refuses the rest anyway.
     const report = useQuery({
@@ -261,7 +261,7 @@ function SetupCard({ recovery }: { recovery: Recovery }) {
 function ProfitCard({ report }: { report: ProfitReport }) {
     const { t, locale } = useI18n();
     const href = useHref();
-    const { slug } = useTeam();
+    const { slug, currency } = useTeam();
     const link = <MoreLink href={href(`/t/${slug}/report`)} label={t.overview.profit.action} />;
 
     if (report.status === 'frozen') {
@@ -300,6 +300,7 @@ function ProfitCard({ report }: { report: ProfitReport }) {
                 label={`${t.report.incrementalProfit} · ${t.overview.profit.period}`}
                 low={profit.low}
                 high={profit.high}
+                currency={currency}
                 winProbability={profit.win_probability}
                 verdict={profit.verdict}
                 verdictLabel={t.report.verdictLabel[profit.verdict]}

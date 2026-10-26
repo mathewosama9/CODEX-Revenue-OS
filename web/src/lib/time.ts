@@ -1,18 +1,24 @@
 import type { Locale } from '@/lib/money';
 
-// Latin digits in both languages (brand rule); Riyadh is the merchant's clock.
-export function formatDateTime(iso: string, locale: Locale): string {
+// Latin digits in both languages (brand rule). Times read on the merchant's clock:
+// the workspace timezone from /me (useTeam().timezone, ADR-012), Riyadh by default.
+const DEFAULT_TIMEZONE = 'Asia/Riyadh';
+
+export function formatDateTime(iso: string, locale: Locale, timeZone: string = DEFAULT_TIMEZONE): string {
     return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA-u-nu-latn-ca-gregory' : 'en-GB', {
         dateStyle: 'medium',
         timeStyle: 'short',
-        timeZone: 'Asia/Riyadh',
+        timeZone,
     }).format(new Date(iso));
 }
 
-export function formatDate(iso: string, locale: Locale): string {
+export function formatDate(iso: string, locale: Locale, timeZone: string = DEFAULT_TIMEZONE): string {
+    // A bare calendar day ("2026-10-01") parses as UTC midnight: read it in UTC so no zone shifts it a day.
+    const dayOnly = /^\d{4}-\d{2}-\d{2}$/.test(iso);
+
     return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA-u-nu-latn-ca-gregory' : 'en-GB', {
         dateStyle: 'medium',
-        timeZone: 'Asia/Riyadh',
+        timeZone: dayOnly ? 'UTC' : timeZone,
     }).format(new Date(iso));
 }
 
@@ -27,9 +33,9 @@ export function formatRelative(iso: string, locale: Locale): string {
           : format.format(Math.round(minutes / 1440), 'day');
 }
 
-/** Today's date in Riyadh as YYYY-MM-DD: the merchant's calendar, not UTC (review H6, L3). */
-export function riyadhToday(): string {
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh' }).format(new Date());
+/** Today's date in the workspace timezone as YYYY-MM-DD: the merchant's calendar, not UTC (review H6, L3). */
+export function workspaceToday(timeZone: string = DEFAULT_TIMEZONE): string {
+    return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
 }
 
 /** YYYY-MM-DD shifted by whole days (calendar arithmetic, no time zone involved). */

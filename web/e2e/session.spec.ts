@@ -6,6 +6,8 @@ test.describe('session and outages', () => {
     test('an expired session sends the user to sign in, with a notice (B8)', async ({ page, lang, t }) => {
         await signIn(page, lang, t, 'owner@demo.test');
         await expect(page).toHaveURL(/overview$/);
+        // Let the overview's requests finish first: a late response's Set-Cookie would restore the session.
+        await page.waitForLoadState('networkidle');
 
         // The session ends server-side (lifetime, sign-out elsewhere).
         await page.context().clearCookies();

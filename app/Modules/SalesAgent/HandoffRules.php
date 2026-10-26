@@ -45,7 +45,10 @@ final class HandoffRules
         'discount', 'coupon', 'voucher', 'promo code', 'special price', 'special offer',
     ];
 
-    public function check(string $message, ?int $cartHalalas = null, ?int $cartThresholdHalalas = null): ?HandoffReason
+    /**
+     * The cart and its threshold are minor units of the same (workspace) currency.
+     */
+    public function check(string $message, ?int $cartMinor = null, ?int $cartThresholdMinor = null): ?HandoffReason
     {
         $text = ArabicText::normalize($message);
         $tokens = self::tokens($text);
@@ -54,7 +57,7 @@ final class HandoffRules
             self::matches($text, $tokens, self::HUMAN) => HandoffReason::CustomerAskedHuman,
             self::matches($text, $tokens, self::COMPLAINT) => HandoffReason::Complaint,
             self::matches($text, $tokens, self::DISCOUNT) => HandoffReason::DiscountRequest,
-            $cartHalalas !== null && $cartThresholdHalalas !== null && $cartHalalas >= $cartThresholdHalalas => HandoffReason::HighCartValue,
+            $cartMinor !== null && $cartThresholdMinor !== null && $cartMinor >= $cartThresholdMinor => HandoffReason::HighCartValue,
             default => null,
         };
     }

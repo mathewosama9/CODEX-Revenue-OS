@@ -248,6 +248,8 @@ final class Codex_Connector_Events {
 			'woocommerce_version' => defined( 'WC_VERSION' ) ? WC_VERSION : '',
 			'checkout'            => Codex_Connector_Plugin::checkout_type(),
 			'currency'            => function_exists( 'get_woocommerce_currency' ) ? get_woocommerce_currency() : '',
+			'price_decimals'      => Codex_Connector_Plugin::price_decimals(),
+			'timezone'            => wp_timezone_string(),
 		);
 	}
 
