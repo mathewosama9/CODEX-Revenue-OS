@@ -24,7 +24,7 @@ const count = new Intl.NumberFormat('en-US');
  */
 export default function ConsentScreen() {
     const { t, locale } = useI18n();
-    const { path, slug } = useTeam();
+    const { path, slug, timezone } = useTeam();
     const client = useQueryClient();
     const { busy, errors, failed, run } = useSubmit();
     const [file, setFile] = useState<File | null>(null);
@@ -147,7 +147,7 @@ export default function ConsentScreen() {
                                 {items.map((item) => (
                                     <li key={item.id} className="flex flex-col gap-2 py-3">
                                         <span className="text-xs text-muted-foreground">
-                                            {item.created_at ? formatDateTime(item.created_at, locale) : ''}
+                                            {item.created_at ? formatDateTime(item.created_at, locale, timezone) : ''}
                                             {item.collected_via ? ` · ${t.consent.via[item.collected_via] ?? item.collected_via}` : ''}
                                         </span>
                                         <Summary item={item} />

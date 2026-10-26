@@ -12,7 +12,6 @@ use App\Modules\Billing\UsageMeter;
 use App\Modules\Commerce\Commerce;
 use App\Modules\Compliance\ActorType;
 use App\Modules\Compliance\AuditLogger;
-use App\Modules\Compliance\Consent\ConsentGate;
 use App\Modules\Compliance\QuietHours;
 use App\Modules\Inbox\Data\ConversationSnapshot;
 use App\Modules\Inbox\Inbox;
@@ -23,6 +22,7 @@ use App\Modules\SalesAgent\Models\AgentSettings;
 use App\Modules\SalesAgent\Models\ReplyDraft;
 use App\Modules\SalesAgent\Tools\RunContext;
 use App\Shared\Tenancy\TenantContext;
+use App\Shared\Tenancy\WorkspaceLocale;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 
@@ -52,11 +52,12 @@ class SalesAgent
         private readonly Messaging $messaging,
         private readonly MessageSender $sender,
         private readonly Commerce $commerce,
-        private readonly ConsentGate $consent,
+        private readonly ReplyConsent $replyConsent,
         private readonly QuietHours $quietHours,
         private readonly UsageMeter $usage,
         private readonly AuditLogger $audit,
         private readonly BlockRateMonitor $monitor,
+        private readonly WorkspaceLocale $locale,
     ) {}
 
     public function respond(int $conversationId, int $inboundMessageId): ?AgentRun
@@ -151,7 +152,7 @@ class SalesAgent
     {
         $latest = end($history);
         $cart = $this->commerce->openCartFor($conversation->subjectHash);
-        $reason = $this->rules->check($latest === false ? '' : $latest->text, $cart?->totalHalalas, $settings->handoff_cart_halalas);
+        $reason = $this->rules->check($latest === false ? '' : $latest->text, $cart?->totalHalalas, $this->controls->handoffCartMinor($settings));
 
         if ($reason !== null) {
             return [null, $reason];
@@ -168,8 +169,8 @@ class SalesAgent
             $conversation->aiPaused => 'paused',
             $this->messaging->latestInboundId($conversation->subjectHash) !== $inboundMessageId => 'superseded',
             $conversation->phone === null => 'no_phone',
-            // Opted out or no documented consent: the AI stays silent (prompt rule; people still can answer).
-            ! $this->consent->mayMessage($conversation->phone) => 'no_consent',
+            // An opt-out always silences the AI; people still can answer (see ReplyConsent).
+            $this->replyConsent->refusal($conversation->phone) !== null => $this->replyConsent->refusal($conversation->phone),
             default => null,
         };
     }
@@ -182,7 +183,8 @@ class SalesAgent
      */
     private function ask(AgentRun $run, ConversationSnapshot $conversation, AgentSettings $settings, array $history): array
     {
-        $instructions = SystemPrompt::for($this->storeName());
+        $prompt = SystemPrompt::for($this->storeName(), $this->locale->currency());
+        $instructions = $prompt;
         $trace = [];
         $started = hrtime(true);
 
@@ -244,7 +246,7 @@ class SalesAgent
 
             $trace[] = ['attempt' => $attempt, 'blocked_numbers' => $reply->validation->unmatched];
             $run->trace = $trace;
-            $instructions = SystemPrompt::for($this->storeName()).SystemPrompt::retryNote($reply->validation->unmatched);
+            $instructions = $prompt.SystemPrompt::retryNote($reply->validation->unmatched);
         }
 
         return [null, HandoffReason::ValidatorFailed];
@@ -336,7 +338,7 @@ class SalesAgent
             && $fresh !== null
             && ! $fresh->aiPaused
             && $fresh->phone !== null
-            && $this->consent->mayMessage($fresh->phone)
+            && $this->replyConsent->allows($fresh->phone)
             && $this->messaging->latestInboundId($fresh->subjectHash) === $run->inbound_message_id;
     }
 

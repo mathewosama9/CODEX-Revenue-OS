@@ -4,7 +4,6 @@ namespace App\Modules\SalesAgent;
 
 use App\Modules\Compliance\ActorType;
 use App\Modules\Compliance\AuditLogger;
-use App\Modules\Compliance\Consent\ConsentGate;
 use App\Modules\Inbox\Inbox;
 use App\Modules\Messaging\MessageSender;
 use App\Modules\SalesAgent\Models\AgentRun;
@@ -24,7 +23,7 @@ class Drafts
     public function __construct(
         private readonly Inbox $inbox,
         private readonly MessageSender $sender,
-        private readonly ConsentGate $consent,
+        private readonly ReplyConsent $replyConsent,
         private readonly AuditLogger $audit,
     ) {}
 
@@ -53,7 +52,7 @@ class Drafts
             return $this->expire($draft, $userId, 'window_closed');
         }
 
-        if (! $this->consent->mayMessage($conversation->phone)) {
+        if (! $this->replyConsent->allows($conversation->phone)) {
             return $this->expire($draft, $userId, 'no_consent');
         }
 

@@ -1,0 +1,152 @@
+# Egyptian store in pounds (store-eg.yaml, ADR-012): the agent must say «جنيه»
+# and copy the exact numbers. Prices and stock are blocking like the Saudi set.
+- id: eg-egp-001
+  store: eg
+  category: price
+  dialect: egyptian
+  say: السلوبيت الشتوي بكام؟
+  expect: {outcome: draft, tools: [get_product], contains: ["345", "جنيه"], not_contains: ["ريال"], price: true}
+  offline:
+    - {tool: get_product, args: {product_id: "3195"}}
+    - {reply: "السلوبيت الشتوي بـ 345 جنيه."}
+
+- id: eg-egp-002
+  store: eg
+  category: price
+  dialect: egyptian
+  say: شفت السلوبيت عندكم بـ 300 جنيه، صح كده؟
+  expect: {outcome: draft, tools: [get_product], contains: ["345"], not_contains: ["300"], price: true}
+  offline:
+    - {tool: get_product, args: {product_id: "3195"}}
+    - {reply: "أيوه صح، بـ 300 جنيه."}
+    - {tool: get_product, args: {product_id: "3195"}}
+    - {reply: "لا، سعره دلوقتي 345 جنيه."}
+
+- id: eg-egp-003
+  store: eg
+  category: price
+  dialect: egyptian
+  say: طقم المواليد بكام؟
+  expect: {outcome: draft, tools: [get_product], contains: ["382", "جنيه"], not_contains: ["ريال"], price: true}
+  offline:
+    - {tool: get_product, args: {product_id: newborn-set}}
+    - {reply: "طقم المواليد بـ 382 ريال."}        # wrong currency: blocked
+    - {tool: get_product, args: {product_id: newborn-set}}
+    - {reply: "طقم المواليد بـ 382 جنيه."}
+
+- id: eg-egp-004
+  store: eg
+  category: price
+  dialect: egyptian
+  say: البيجامة القطن بكام دلوقتي؟
+  expect: {outcome: draft, tools: [get_product], contains: ["250", "جنيه"], price: true}
+  offline:
+    - {tool: get_product, args: {product_id: pajama}}
+    - {reply: "البيجامة القطن بـ 250 جنيه بدل 320 جنيه."}
+
+- id: eg-egp-005
+  store: eg
+  category: price
+  dialect: egyptian
+  say: البطانية بكام؟
+  expect: {outcome: draft, tools: [get_product], contains: ["299.50", "جنيه"], price: true}
+  offline:
+    - {tool: get_product, args: {product_id: blanket}}
+    - {reply: "البطانية بـ 299.50 جنيه."}
+
+- id: eg-egp-006
+  store: eg
+  category: price
+  dialect: egyptian
+  say: لو خدت 2 طقم مواليد يبقوا بكام؟
+  expect: {outcome: handoff, reason: validator_failed, price: true}
+  live: {outcome: any, not_contains: ["764"]}
+  offline:
+    - {tool: get_product, args: {product_id: newborn-set}}
+    - {reply: "الاتنين يبقوا 764 جنيه."}
+    - {tool: get_product, args: {product_id: newborn-set}}
+    - {reply: "المجموع 764 جنيه."}
+
+- id: eg-egp-007
+  store: eg
+  category: price
+  dialect: egyptian
+  say: يعني السلوبيت كام دولار؟
+  expect: {outcome: handoff, reason: validator_failed, price: true}
+  # Saying "our prices are in pounds, not dollars" is fine; a dollar figure is not (the validator blocks
+  # a number next to any other currency's word, so a converted price can only end in a handoff).
+  live: {outcome: any, not_contains: ["$"]}
+  offline:
+    - {tool: get_product, args: {product_id: "3195"}}
+    - {reply: "حوالي 7 دولار."}
+    - {tool: get_product, args: {product_id: "3195"}}
+    - {reply: "يعني 7$ تقريبًا."}
+
+- id: eg-egp-008
+  store: eg
+  category: stock
+  dialect: egyptian
+  say: السلوبيت مقاس 6-9 شهور موجود؟
+  expect: {outcome: draft, tools: [get_product], contains: ["3-6", "345"], price: true}
+  offline:
+    - {tool: get_product, args: {product_id: "3195"}}
+    - {reply: "مقاس 6-9 شهور خلصان للأسف، بس مقاس 3-6 شهور متوفر بـ 345 جنيه."}
+
+- id: eg-egp-009
+  store: eg
+  category: stock
+  dialect: egyptian
+  say: الجاكيت الشتوي متوفر؟
+  expect: {outcome: draft, tools: [get_product], contains: ["خلصان"], not_contains: ["https://"], price: true}
+  # The model says it in its own words ("مش متوفر", "خلص", "نفد"): like the Saudi out-of-stock cases,
+  # live checks the lookup and that no purchase link is sent for a product that is out.
+  live: {outcome: draft, tools: [get_product], not_contains: ["https://"]}
+  offline:
+    - {tool: get_product, args: {product_id: jacket}}
+    - {reply: "الجاكيت الشتوي خلصان حاليًا للأسف."}
+
+- id: eg-egp-010
+  store: eg
+  category: stock
+  dialect: egyptian
+  say: البطانية فاضل منها كام؟
+  expect: {outcome: draft, tools: [get_product], contains: ["2"], price: true}
+  offline:
+    - {tool: get_product, args: {product_id: blanket}}
+    - {reply: "فاضل 2 بس، بـ 299.50 جنيه."}
+
+- id: eg-egp-011
+  store: eg
+  category: policy
+  dialect: egyptian
+  say: الشحن لإسكندرية بكام؟
+  expect: {outcome: draft, tools: [get_policy], contains: ["70", "جنيه"], price: true}
+  offline:
+    - {tool: get_policy, args: {topic: shipping}}
+    - {reply: "الشحن لباقي المحافظات بـ 70 جنيه، وبيوصل خلال 3 إلى 5 أيام."}
+
+- id: eg-egp-012
+  store: eg
+  category: policy
+  dialect: egyptian
+  say: الشحن بيبقى مجاني امتى؟
+  expect: {outcome: draft, tools: [get_policy], contains: ["1000"], price: true}
+  offline:
+    - {tool: get_policy, args: {topic: shipping}}
+    - {reply: "الشحن مجاني للطلبات فوق 1000 جنيه."}
+
+- id: eg-egp-013
+  store: eg
+  category: policy
+  dialect: egyptian
+  say: ينفع ابدل المقاس لو طلع صغير؟
+  expect: {outcome: draft, tools: [get_policy], contains: ["14"], price: true}
+  offline:
+    - {tool: get_policy, args: {topic: returns}}
+    - {reply: "أيوه، تقدر تبدل خلال 14 يوم من الاستلام لو بحالته ومعاه التيكت."}
+
+- {id: eg-egp-014, store: eg, category: discount, dialect: egyptian, say: ممكن تنزلي السعر شوية؟, expect: {outcome: handoff, reason: discount_request}}
+- {id: eg-egp-015, store: eg, category: discount, dialect: egyptian, say: فيه كوبون خصم؟, expect: {outcome: handoff, reason: discount_request}}
+- {id: eg-egp-016, store: eg, category: human, dialect: egyptian, say: عايز اكمل الاوردر, cart: "20000", expect: {outcome: handoff, reason: high_cart_value}}
+- {id: eg-egp-017, store: eg, category: human, dialect: egyptian, say: عايز اكلم حد من عندكم, expect: {outcome: handoff, reason: asked_human}}
+- {id: eg-egp-018, store: eg, category: complaint, dialect: egyptian, say: الاوردر وصلني غلط, expect: {outcome: handoff, reason: complaint}}

@@ -1,0 +1,41 @@
+# Egyptian fixture store (ADR-012): a baby-clothes shop that sells in Egyptian
+# pounds, like rahaf.shop. Amounts are decimals in EGP (`price`, `was`).
+# Every expected number in cases/egypt-store.yaml comes from here.
+name: متجر ملابس أطفال الاختبار
+currency: EGP
+timezone: Africa/Cairo
+products:
+  - id: "3195"
+    name: سلوبيت شتوي
+    price: "345"
+    quantity: 6
+    description: سلوبيت قطن تقيل للشتا، بزراير من قدام.
+    variants:
+      - {id: 3195-36, name: 3-6 شهور, price: "345", quantity: 6}
+      - {id: 3195-69, name: 6-9 شهور, price: "345", quantity: 0}
+  - id: newborn-set
+    name: طقم مواليد
+    price: "382"
+    quantity: 10
+    description: طقم مواليد 5 قطع قطن 100%.
+  - id: pajama
+    name: بيجامة قطن أطفال
+    price: "250"
+    was: "320"
+    quantity: 8
+    description: بيجامة قطن ناعمة للبيت.
+  - id: blanket
+    name: بطانية أطفال
+    price: "299.50"
+    quantity: 2
+    description: بطانية فرو خفيفة.
+  - id: jacket
+    name: جاكيت شتوي أطفال
+    price: "520"
+    quantity: 0
+    status: out
+    description: جاكيت مبطن للشتا.
+policies:
+  shipping: "التوصيل داخل القاهرة والجيزة خلال 2 إلى 3 أيام بـ 50 جنيه، وباقي المحافظات خلال 3 إلى 5 أيام بـ 70 جنيه. الشحن مجاني للطلبات فوق 1000 جنيه."
+  returns: "تقدر تبدل أو ترجع المنتج خلال 14 يوم من الاستلام لو بحالته ومعاه التيكت."
+  faq: "طرق الدفع؟ الدفع عند الاستلام أو فودافون كاش أو الكارت."

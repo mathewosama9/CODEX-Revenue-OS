@@ -2,11 +2,11 @@
 
 namespace App\Modules\Commerce\Jobs;
 
-use App\Modules\Commerce\CommerceAdapter;
+use App\Modules\Commerce\CommerceAdapters;
 use App\Modules\Commerce\CommerceRecorder;
 use App\Modules\Commerce\Models\Product;
 use App\Modules\Commerce\Models\StoreConnection;
-use App\Modules\Commerce\Salla\SallaRateLimited;
+use App\Modules\Commerce\PlatformRateLimited;
 use App\Modules\Commerce\StoreStatus;
 use App\Shared\Tenancy\TenantAware;
 use Illuminate\Bus\Queueable;
@@ -43,13 +43,15 @@ class SyncCatalog implements ShouldBeUnique, ShouldQueue
         return (string) $this->tenantId;
     }
 
-    public function handle(CommerceAdapter $adapter, CommerceRecorder $recorder): void
+    public function handle(CommerceAdapters $adapters, CommerceRecorder $recorder): void
     {
         $store = StoreConnection::query()->where('status', StoreStatus::Active)->first();
 
         if ($store === null) {
             return;
         }
+
+        $adapter = $adapters->for($store);
 
         $seen = [];
 
@@ -58,7 +60,7 @@ class SyncCatalog implements ShouldBeUnique, ShouldQueue
                 $recorder->recordProduct($product);
                 $seen[$product->externalId] = true;
             }
-        } catch (SallaRateLimited $exception) {
+        } catch (PlatformRateLimited $exception) {
             $this->release($exception->retryAfterSeconds);
 
             return;

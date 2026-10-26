@@ -1,14 +1,16 @@
-import { formatSar } from '@/lib/money';
-import type { Locale } from '@/lib/money';
+import { formatMoney } from '@/lib/money';
+import type { Locale, WorkspaceCurrency } from '@/lib/money';
 import { cn } from '@/lib/utils';
 
 export type EstimateVerdict = 'helpful' | 'harmful' | 'inconclusive';
 
 type RangeEstimateProps = {
     label: string;
-    /** Lower and upper bound of the interval, in halalas. */
+    /** Lower and upper bound of the interval, in minor units of `currency`. */
     low: number;
     high: number;
+    /** The workspace currency (useTeam().currency). */
+    currency: WorkspaceCurrency;
     /** Probability (0–1) that the true effect is positive. */
     winProbability: number;
     verdict: EstimateVerdict;
@@ -28,6 +30,7 @@ export function RangeEstimate({
     label,
     low,
     high,
+    currency,
     winProbability,
     verdict,
     explanation,
@@ -37,6 +40,7 @@ export function RangeEstimate({
     isMoney = true,
 }: RangeEstimateProps) {
     const isHelpful = verdict === 'helpful';
+    // An estimate reads in whole units; a 3-decimal currency keeps its fils (1 KWD ≈ $3).
 
     return (
         <div className="flex flex-col gap-3 rounded-xl rounded-ss-none border bg-card p-6 shadow-card">
@@ -53,7 +57,8 @@ export function RangeEstimate({
                     verdict === 'inconclusive' && 'text-muted-foreground',
                 )}
             >
-                {formatSar(low, locale)} – {formatSar(high, locale)}
+                {formatMoney(low, currency, locale, { whole: currency.exponent < 3 })} –{' '}
+                {formatMoney(high, currency, locale, { whole: currency.exponent < 3 })}
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-[13px]">

@@ -2,11 +2,15 @@
 
 namespace App\Modules\Compliance;
 
+use App\Shared\Tenancy\MissingTenantContext;
+use App\Shared\Tenancy\WorkspaceLocale;
 use Carbon\CarbonImmutable;
 
 /**
  * No promotional sends inside quiet hours (US-E04-03). A send that falls inside
- * the window is postponed to the window's end, never cancelled.
+ * the window is postponed to the window's end, never cancelled. Hours and
+ * Ramadan dates are local to the current workspace's timezone (ADR-012);
+ * $timezone is the fallback outside a tenant.
  */
 class QuietHours
 {
@@ -20,6 +24,7 @@ class QuietHours
         private readonly array $default,
         private readonly array $ramadan,
         private readonly array $ramadanPeriods,
+        private readonly ?WorkspaceLocale $locale = null,
     ) {}
 
     public function isQuiet(CarbonImmutable $at): bool
@@ -42,7 +47,7 @@ class QuietHours
      */
     private function windowContaining(CarbonImmutable $at): ?array
     {
-        $local = $at->setTimezone($this->timezone);
+        $local = $at->setTimezone($this->timezone());
 
         // A window that crosses midnight may have started the previous day.
         foreach ([$local->subDay(), $local] as $day) {
@@ -67,6 +72,15 @@ class QuietHours
         $end = $day->setTimeFromTimeString($hours['end']);
 
         return [$start, $end->lessThanOrEqualTo($start) ? $end->addDay() : $end];
+    }
+
+    private function timezone(): string
+    {
+        try {
+            return $this->locale?->timezone() ?? $this->timezone;
+        } catch (MissingTenantContext) {
+            return $this->timezone;
+        }
     }
 
     private function isRamadan(CarbonImmutable $day): bool

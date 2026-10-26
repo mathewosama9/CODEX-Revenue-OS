@@ -1,4 +1,6 @@
-// Response shapes of the Laravel API (routes/api/tenant.php). Money is in halalas.
+// Response shapes of the Laravel API (routes/api/tenant.php). Money (`*_halalas`, a
+// historic name) is integer minor units of the workspace currency: useTeam().currency
+// gives its code and exponent (ADR-012).
 
 export type Checklist = Record<
     | 'store_connected'
@@ -186,7 +188,8 @@ export type AgentSettings = {
     daily_cap_usd: number;
     max_daily_cap_usd: number;
     spent_today_usd: number;
-    handoff_cart_sar: number | null;
+    /** Major units of the workspace currency, an exact decimal string ("1500.00", "12.345"). */
+    handoff_cart: string | null;
     assisted_days: number;
     assisted_days_required: number;
     autonomy_blockers: string[];
@@ -205,4 +208,27 @@ export type KnowledgeDocument = {
     title: string;
     body: string;
     updated_at: string;
+};
+
+export type StoreProvider = 'salla' | 'woocommerce';
+
+/** GET /commerce/store: platform and site only, never a key or secret. */
+export type StoreStatus = {
+    connected: boolean;
+    store: {
+        provider: StoreProvider;
+        store_id: string;
+        site_url: string | null;
+        name: string | null;
+        status: string;
+        last_webhook_at: string | null;
+    } | null;
+};
+
+/** The WooCommerce connect / rotate answer: the secret is in it once, never again. */
+export type WooConnection = {
+    store_id: string;
+    connector_secret: string;
+    api_base: string;
+    webhook_url: string;
 };

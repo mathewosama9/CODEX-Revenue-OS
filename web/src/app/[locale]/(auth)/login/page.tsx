@@ -54,7 +54,7 @@ export default function LoginPage() {
             }
 
             await afterSignIn(client);
-            router.replace(href(''));
+            router.replace(href('/workspaces'));
         });
     };
 

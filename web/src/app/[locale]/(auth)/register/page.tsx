@@ -37,7 +37,7 @@ export default function RegisterPage() {
             await ensureCsrf(true);
             await api('POST', '/register', form);
             await afterSignIn(client);
-            router.replace(href(''));
+            router.replace(href('/workspaces'));
         });
     };
 

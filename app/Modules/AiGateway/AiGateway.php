@@ -12,6 +12,7 @@ use App\Modules\AiGateway\Sdk\ToolAdapter;
 use App\Modules\AiGateway\Sdk\ToolRecorder;
 use App\Modules\Billing\UsageMeter;
 use App\Modules\Measurement\CostLedger;
+use App\Shared\Tenancy\WorkspaceLocale;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Embeddings;
@@ -150,10 +151,10 @@ class AiGateway
         return array_values($response->embeddings);
     }
 
-    /** Spend since midnight Riyadh, the day the merchant sees (US-E10-06). */
+    /** Spend since local midnight in the workspace timezone, the day the merchant sees (US-E10-06, ADR-012). */
     public function spentTodayUsdMicros(): int
     {
-        $since = CarbonImmutable::now('Asia/Riyadh')->startOfDay()->utc();
+        $since = CarbonImmutable::now(app(WorkspaceLocale::class)->timezone())->startOfDay()->utc();
 
         return (int) AiCall::query()->where('created_at', '>=', $since)->sum('cost_usd_micros');
     }

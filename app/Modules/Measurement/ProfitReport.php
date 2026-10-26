@@ -7,7 +7,9 @@ use App\Modules\Commerce\Data\OrderSnapshot;
 use App\Modules\Measurement\Models\CostLedgerEntry;
 use App\Modules\Measurement\Models\Exposure;
 use App\Modules\Measurement\Models\Touch;
+use App\Shared\Money\Currency;
 use App\Shared\Stats\Normal;
+use App\Shared\Tenancy\WorkspaceLocale;
 use Carbon\CarbonImmutable;
 
 /**
@@ -26,6 +28,10 @@ use Carbon\CarbonImmutable;
  *
  * The headline is the difference in mean contribution per customer, as an
  * interval with the probability that it is positive — never a single number.
+ *
+ * Every amount is minor units of the workspace currency (ADR-012; the
+ * *_halalas keys keep their historic names). The ledger already holds
+ * micros of that currency, so nothing is mixed or converted here.
  */
 class ProfitReport
 {
@@ -35,8 +41,9 @@ class ProfitReport
         private readonly MarginLookup $margins,
         private readonly int $windowDays,
         private readonly int $attributionHours,
-        private readonly int $mdeHalalasPerSubject,
+        private readonly float $mdeUsdPerSubject,
         private readonly string $methodVersion,
+        private readonly WorkspaceLocale $locale,
     ) {}
 
     /**
@@ -46,6 +53,8 @@ class ProfitReport
     {
         $experiment = $this->assigner->experiment();
         $now = CarbonImmutable::now();
+        $currency = $this->locale->currency();
+        $microsPerMinor = $currency->microsPerMinor();
 
         $base = [
             // Merchant days, "to" inclusive (the query end is exclusive).
@@ -53,6 +62,7 @@ class ProfitReport
             'method_version' => $this->methodVersion,
             'outcome_window_days' => $this->windowDays,
             'holdout_bps' => $experiment->holdout_bps,
+            'currency' => $currency->toArray(),
         ];
 
         if ($experiment->srm_flagged_at !== null) {
@@ -107,7 +117,7 @@ class ProfitReport
                 $costs += $inWindow($at) ? $micros : 0;
             }
 
-            $outcomes[$subject['arm']][] = $contribution - $costs / 10_000;
+            $outcomes[$subject['arm']][] = $contribution - $costs / $microsPerMinor;
             $revenue[$subject['arm']][] = $netSales;
             $converted[$subject['arm']] += $netSales > 0 ? 1 : 0;
         }
@@ -117,7 +127,7 @@ class ProfitReport
         $rt = Normal::describe($revenue['treatment']);
         $rc = Normal::describe($revenue['control']);
 
-        $periodCosts = $this->periodCosts($from, $to);
+        $periodCosts = $this->periodCosts($from, $to, $microsPerMinor);
 
         $report = $base + [
             'status' => 'ok',
@@ -137,6 +147,8 @@ class ProfitReport
             'incremental_profit_halalas' => $this->scaledInterval($t, $c, $t['n']),
             // 3. What it cost.
             'costs_halalas' => $periodCosts,
+            // Some cost has no sourced price (a Meta rate for a country we have no price for).
+            'costs_estimated' => $this->costsEstimated($from, $to),
             'margin_quality' => [
                 'revenue_on_assumed_margin_share' => $totalRevenue > 0 ? $assumedMarginRevenue / $totalRevenue : 0.0,
                 'warning' => $totalRevenue > 0 && $assumedMarginRevenue / $totalRevenue > 0.3,
@@ -145,7 +157,7 @@ class ProfitReport
 
         $report['verdict'] = $report['incremental_profit_halalas']['verdict'];
         $report['additional_customers_needed'] = $report['verdict'] === 'inconclusive'
-            ? $this->additionalNeeded($t, $c, $experiment->holdout_bps)
+            ? $this->additionalNeeded($t, $c, $experiment->holdout_bps, $currency)
             : 0;
 
         return $report;
@@ -271,7 +283,7 @@ class ProfitReport
     /**
      * @return array<string, int>
      */
-    private function periodCosts(CarbonImmutable $from, CarbonImmutable $to): array
+    private function periodCosts(CarbonImmutable $from, CarbonImmutable $to, int $microsPerMinor): array
     {
         $costs = [];
 
@@ -280,10 +292,19 @@ class ProfitReport
                 ->where('kind', $kind->value)
                 ->where('occurred_at', '>=', $from)
                 ->where('occurred_at', '<', $to)
-                ->sum('amount_micros') / 10_000);
+                ->sum('amount_micros') / $microsPerMinor);
         }
 
         return $costs + ['total' => array_sum($costs)];
+    }
+
+    private function costsEstimated(CarbonImmutable $from, CarbonImmutable $to): bool
+    {
+        return CostLedgerEntry::query()
+            ->where('occurred_at', '>=', $from)
+            ->where('occurred_at', '<', $to)
+            ->where('meta->estimated', true)
+            ->exists();
     }
 
     /**
@@ -324,11 +345,12 @@ class ProfitReport
      * @param  array{n: int, mean: float, variance: float}  $t
      * @param  array{n: int, mean: float, variance: float}  $c
      */
-    private function additionalNeeded(array $t, array $c, int $holdoutBps): int
+    private function additionalNeeded(array $t, array $c, int $holdoutBps, Currency $currency): int
     {
         $n = $t['n'] + $c['n'];
+        $mde = $currency->minorFromUsd($this->mdeUsdPerSubject);
 
-        if ($n < 2 || $this->mdeHalalasPerSubject <= 0) {
+        if ($n < 2 || $mde <= 0) {
             return 0;
         }
 
@@ -337,7 +359,7 @@ class ProfitReport
         $treatmentShare = 1 - $controlShare;
 
         $required = (Normal::Z_95 + Normal::Z_80_POWER) ** 2 * $pooledVariance
-            * (1 / $treatmentShare + 1 / $controlShare) / ($this->mdeHalalasPerSubject ** 2);
+            * (1 / $treatmentShare + 1 / $controlShare) / ($mde ** 2);
 
         return max(0, (int) ceil($required) - $n);
     }

@@ -8,7 +8,9 @@ use App\Modules\Compliance\Models\ConsentRecord;
 use App\Shared\Phone\PhoneNumber;
 use App\Shared\Phone\SubjectHasher;
 use App\Shared\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use InvalidArgumentException;
+use Throwable;
 
 /**
  * The single question every sender asks before a marketing message:
@@ -43,6 +45,23 @@ class ConsentGate
         return $latest?->status === ConsentStatus::Granted;
     }
 
+    /**
+     * The customer asked to stop (opt-out keyword, template button, import
+     * note): their latest WhatsApp record is a revocation.
+     */
+    public function hasOptedOut(?PhoneNumber $phone, ConsentChannel $channel = ConsentChannel::WhatsApp): bool
+    {
+        if ($phone === null) {
+            return false;
+        }
+
+        return ConsentRecord::query()
+            ->where('subject_hash', $this->subjectHash($phone))
+            ->where('channel', $channel)
+            ->latest('id')
+            ->first()?->status === ConsentStatus::Revoked;
+    }
+
     /** At least one documented grant exists: the merchant's consent source works. */
     public function hasAnyGrant(): bool
     {
@@ -50,8 +69,16 @@ class ConsentGate
     }
 
     /**
+     * A stop wins over a checkout box: once the customer's latest record is a
+     * revocation (they said stop, or the merchant deleted their data), a
+     * checkout opt-in re-grants only with proof that it is fresh, i.e. the
+     * evidence carries a `captured_at` after the revocation and comes from a
+     * cart that never granted before. A box still ticked in an old session,
+     * a restored cart or a late event retry is not a new "yes".
+     *
      * @param  array<string, mixed>  $evidence  What the customer agreed to and where it is proven
      *                                          (text version, checkout reference). No PII.
+     * @return bool false when an earlier opt-out kept the grant from being recorded
      */
     public function grant(
         PhoneNumber $phone,
@@ -59,12 +86,62 @@ class ConsentGate
         array $evidence,
         ConsentChannel $channel = ConsentChannel::WhatsApp,
         ConsentPurpose $purpose = ConsentPurpose::Marketing,
-    ): void {
+    ): bool {
         if ($source === ConsentSource::OptOutKeyword || $evidence === []) {
             throw new InvalidArgumentException('A consent grant needs a grant source and documented evidence.');
         }
 
+        if ($source === ConsentSource::CheckoutOptIn && ! $this->freshAfterOptOut($phone, $evidence, $channel, $purpose)) {
+            $this->audit->record('consent.grant_refused', ActorType::System, context: [
+                'source' => $source->value,
+                'channel' => $channel->value,
+                'reason' => 'opted_out',
+            ]);
+
+            return false;
+        }
+
         $this->append($phone, ConsentStatus::Granted, $source, $evidence, $channel, $purpose);
+
+        return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $evidence
+     */
+    private function freshAfterOptOut(PhoneNumber $phone, array $evidence, ConsentChannel $channel, ConsentPurpose $purpose): bool
+    {
+        $records = ConsentRecord::query()
+            ->where('subject_hash', $this->subjectHash($phone))
+            ->where('channel', $channel)
+            ->where('purpose', $purpose)
+            ->orderByDesc('id')
+            ->get();
+
+        $latest = $records->first();
+
+        if ($latest === null || $latest->status !== ConsentStatus::Revoked) {
+            return true;
+        }
+
+        $capturedAt = $evidence['captured_at'] ?? null;
+
+        try {
+            $capturedAt = is_string($capturedAt) && $capturedAt !== '' ? CarbonImmutable::parse($capturedAt)->utc() : null;
+        } catch (Throwable) {
+            $capturedAt = null;
+        }
+
+        if ($capturedAt === null || ! $capturedAt->isAfter($latest->recorded_at)) {
+            return false;
+        }
+
+        $cartId = $evidence['cart_id'] ?? null;
+
+        // The same cart again (restored, edited, retried) is not a new opt-in.
+        return ! $records->contains(fn (ConsentRecord $record) => $record->status === ConsentStatus::Granted
+            && $cartId !== null
+            && ($record->evidence['cart_id'] ?? null) === $cartId);
     }
 
     /**

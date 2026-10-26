@@ -48,7 +48,7 @@
 - id: sa-stock-006
   category: stock
   say: ابي العود 100 مل
-  expect: {outcome: draft, contains: ["50ml"], price: true}
+  expect: {outcome: draft, contains: ["50", "199"], not_contains: ["349"], price: true}  # "50ml" or "50 مل"
   offline:
     - {tool: get_product, args: {product_id: oud}}
     - {reply: "حجم 100ml خلصان، والمتوفر 50ml بـ 199 ريال."}

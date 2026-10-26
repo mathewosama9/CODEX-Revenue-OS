@@ -82,3 +82,30 @@ it('writes every consent change to the audit log', function () {
 
     expect(DB::table('audit_events')->pluck('action')->all())->toBe(['consent.granted', 'consent.revoked']);
 });
+
+it('keeps an opt-out over a later checkout box unless the opt-in is fresh and from a new cart', function () {
+    $states = $this->tenants->run($this->teamA->id, function () {
+        $this->gate->grant($this->phone, ConsentSource::CheckoutOptIn, ['text_version' => 'v1', 'cart_id' => 'c_1']);
+        $this->gate->revoke($this->phone, ConsentSource::OptOutKeyword);
+
+        $later = now()->addMinute()->toIso8601String();
+
+        return [
+            // No proof of when the box was ticked: the stop wins.
+            'undated' => [$this->gate->grant($this->phone, ConsentSource::CheckoutOptIn, ['text_version' => 'v1', 'cart_id' => 'c_2']), $this->gate->mayMessage($this->phone)],
+            // Ticked before the stop (a late retry).
+            'before' => [$this->gate->grant($this->phone, ConsentSource::CheckoutOptIn, ['text_version' => 'v1', 'cart_id' => 'c_2', 'captured_at' => now()->subHour()->toIso8601String()]), $this->gate->mayMessage($this->phone)],
+            // The same cart again (restored or edited).
+            'same_cart' => [$this->gate->grant($this->phone, ConsentSource::CheckoutOptIn, ['text_version' => 'v1', 'cart_id' => 'c_1', 'captured_at' => $later]), $this->gate->mayMessage($this->phone)],
+            // A new checkout, ticked after the stop.
+            'fresh' => [$this->gate->grant($this->phone, ConsentSource::CheckoutOptIn, ['text_version' => 'v1', 'cart_id' => 'c_2', 'captured_at' => $later]), $this->gate->mayMessage($this->phone)],
+        ];
+    });
+
+    expect($states)->toBe([
+        'undated' => [false, false],
+        'before' => [false, false],
+        'same_cart' => [false, false],
+        'fresh' => [true, true],
+    ]);
+});

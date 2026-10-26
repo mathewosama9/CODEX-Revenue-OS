@@ -24,7 +24,7 @@ export default function ConversationPage() {
     const { t, locale } = useI18n();
     const href = useHref();
     const { conversation: id } = useParams<{ conversation: string }>();
-    const { path, slug, me } = useTeam();
+    const { path, slug, me, timezone } = useTeam();
     const client = useQueryClient();
     const key = [slug, 'conversation', id];
     const [note, setNote] = useState('');
@@ -94,7 +94,7 @@ export default function ConversationPage() {
                                                 {message.body ?? t.inbox.noBody}
                                             </span>
                                             <time className="text-[11px] text-muted-foreground" dateTime={message.at}>
-                                                {formatDateTime(message.at, locale)}
+                                                {formatDateTime(message.at, locale, timezone)}
                                             </time>
                                         </li>
                                     );
@@ -165,7 +165,7 @@ export default function ConversationPage() {
                                             <li key={index} className="rounded-md bg-muted px-3 py-2">
                                                 <p className="whitespace-pre-wrap" dir="auto">{item.body}</p>
                                                 <time className="text-[11px] text-muted-foreground" dateTime={item.at}>
-                                                    {formatDateTime(item.at, locale)}
+                                                    {formatDateTime(item.at, locale, timezone)}
                                                 </time>
                                             </li>
                                         ))}
