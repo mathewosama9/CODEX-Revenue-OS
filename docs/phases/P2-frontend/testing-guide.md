@@ -1,7 +1,7 @@
 # P2 testing guide (the Next.js merchant app)
 
 > Written for: the founder and whoever reviews the frontend before the first merchant.
-> Status: done on branch `feat/P2-web` (from `feat/S1-foundation`), 2026-10-25. The backend was not changed, apart from a demo-data seeder.
+> Status: built on `feat/P2-web` (2026-10-25), now on `main`. Updated 2026-10-27 for what came after: settings, consent import, the overview, the AI screens (P3, see the [P3 guide](../P3-ai-agent/testing-guide.md)) and the marketing site.
 
 ## 1. Run it locally
 
@@ -25,7 +25,7 @@ Open http://localhost:3001. Arabic (RTL) is the default; the language switch is 
 | Account | Password | Role | What they see |
 |---|---|---|---|
 | `owner@demo.test` | `password` | Owner | Every screen |
-| `agent@demo.test` | `password` | Agent | The inbox only |
+| `agent@demo.test` | `password` | Agent | Overview, Inbox, AI drafts and Settings (plus the AI stop button in the inbox) |
 
 The demo store has everything on the go-live checklist green **except the margins**, so you can finish onboarding yourself.
 
@@ -33,8 +33,8 @@ The demo store has everything on the go-live checklist green **except the margin
 
 | # | Screen | What to do | What you should see |
 |---|---|---|---|
-| 1 | Sign in | Sign in as the owner | You go straight to **Setup** (only one workspace) |
-| 2 | Setup | Look at the checklist | 6 green, 1 grey (margins) |
+| 1 | Sign in | Sign in as the owner | You go straight to the **Overview** (only one workspace), with setup progress as the first card |
+| 2 | Setup | Open it from the menu and look at the checklist | 6 green, 1 grey (margins) |
 | 3 | Setup → Profit margin | Enter 40 as the default and a value for one category, then save | "Saved", and the checklist turns fully green |
 | 4 | Cart recovery | Press **Turn on recovery** | The status turns to "On", and the **Pause now** button appears |
 | 5 | Cart recovery | Put 30 in the first delay and save | The browser refuses: the minimum is 60 minutes |
@@ -45,14 +45,17 @@ The demo store has everything on the go-live checklist green **except the margin
 | 10 | Data requests | Enter `0551234567` and export | A JSON file downloads; nothing stays on screen |
 | 11 | Cart recovery | **Pause now** → confirm | The status turns back to "Off" |
 | 12 | Top bar | Switch to English, and the theme to Light | The layout flips to LTR; the theme survives a refresh |
-| 13 | Sign out, then sign in as the agent | — | Only **Inbox** shows in the menu. Typing `/report` in the URL shows "You don't have permission" |
+| 13 | Sign out, then sign in as the agent | — | Only **Overview**, **Inbox**, **AI drafts** and **Settings** show in the menu. Typing `/report` in the URL shows "You don't have permission" |
+| 14 | Settings | Change your name, set up 2FA, invite an agent | Saved; the QR code and recovery codes appear; the invitation shows as pending |
+| 15 | Customer consent | Upload a CSV of phone numbers, write the consent text and source, tick the confirmation | An import summary; a number that opted out is never re-imported |
+| 16 | Sign out → open `/ar` | — | The public marketing site (signed out). "Sign in" leads to the login page |
 
 ## 4. Automated tests
 
 | Check | Command | What it covers |
 |---|---|---|
-| Everything | `composer ci:check` | Backend (269 tests, PHPStan, Pint) + web lint + web TypeScript + the RTL check on `web/` |
-| E2E | `cd web && npm run e2e` | 5 journeys × 2 directions (Arabic RTL, English LTR) = **10 tests**, against the **real Laravel API** |
+| Everything | `composer ci:check` | Backend (Pest, PHPStan, Pint) + web lint + web TypeScript + the RTL check on `web/`. Current counts are in [STATUS.md](../../../STATUS.md) |
+| E2E | `cd web && npm run e2e` | 9 spec files in `web/e2e/`, most of them run in both directions (Arabic RTL, English LTR), against the **real Laravel API** |
 
 The E2E suite starts its own servers on ports **8010** and **3010** and uses its own database **`codex_e2e`** (it is wiped and re-seeded on every run, so it never touches your data). Create it once:
 
@@ -61,7 +64,21 @@ docker exec codex-revenue-os-pgsql-1 psql -U codex -d codex -c "CREATE DATABASE 
 docker exec codex-revenue-os-pgsql-1 psql -U codex -d codex_e2e -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pg_trgm;"
 ```
 
-The journeys: login → onboarding (margins) → enable → settings bounds → report → approval → inbox (take, note, close) → usage → kill switch → sign out; wrong password; signed-out redirect; agent permissions; language switch. CI (`.github/workflows/tests.yml`) runs the same suite after `composer ci:check`.
+The spec files:
+
+| File | Covers |
+|---|---|
+| `owner-journey.spec.ts` | login → onboarding (margins) → enable → settings bounds → report → approval → inbox (take, note, close) → usage → kill switch → sign out |
+| `agent-and-auth.spec.ts` | wrong password, signed-out redirect, agent permissions, language switch, reset link survives a language switch |
+| `overview.spec.ts` | the owner sees every card with setup first and one gold figure; the agent sees only the cards they may |
+| `settings.spec.ts` | profile, password errors in the page language, 2FA setup, inviting an agent |
+| `consent.spec.ts` | consent CSV upload and its summary |
+| `session.spec.ts` | expired session → sign-in with a notice; API down → error screen with retry |
+| `ai-agent.spec.ts` | P3: drafts, zero AI replies after takeover, discount request goes to a person, rejecting a draft |
+| `multi-currency.spec.ts` | a workspace in Egyptian pounds shows pounds with one gold figure; the site stays in riyals |
+| `site.spec.ts` | the marketing site opens signed out with the right `dir`, header links, sign-in path |
+
+CI (`.github/workflows/tests.yml`) runs the same suite after `composer ci:check`.
 
 ## 5. How it is built (for the reviewer)
 
@@ -81,16 +98,8 @@ The journeys: login → onboarding (margins) → enable → settings bounds → 
 | Item | Why | What it needs |
 |---|---|---|
 | WhatsApp connect button works for real | Needs a Meta app and a Facebook Login for Business configuration | `NEXT_PUBLIC_META_APP_ID` and `NEXT_PUBLIC_META_CONFIG_ID` in `web/.env.local`. Until then the screen says the connection isn't enabled |
-| Connect Salla from the app | By design: the merchant installs our app from the Salla app store, and the connection appears on its own | — |
-| Settings (profile, password, 2FA setup, inviting an agent) in Next.js | The backend has no JSON API for these yet, and CORS only allows the login routes | Backend change (decision §7) |
-| Assigning a conversation to a named teammate | The API has no member list; today you can "take" a conversation or release it | `GET /teams/{team}/members` |
-| Arabic validation messages | Laravel has no `lang/ar`, so server errors come back in English | Arabic translation files |
+| Connect Salla from the app | By design: the merchant installs our app from the Salla app store, and the connection appears on its own (WooCommerce, for trials, is connected from Setup) | — |
+| Contact details on the site | Not decided yet | `NEXT_PUBLIC_CONTACT_WHATSAPP` and `NEXT_PUBLIC_CONTACT_EMAIL`; until then the contact page says "coming soon" |
+| Privacy, terms and the `LEGAL REVIEW` copy on the site | Drafts waiting for the lawyer | The legal opinion |
 
-## 7. Backend changes waiting for your approval
-
-None of these were made. Each is small and comes with a test.
-
-1. **Password-reset email link** → points to the Next.js page (`/ar/reset-password?token=…&email=…`) instead of the old Laravel page. One line in `AppServiceProvider` (`ResetPassword::createUrlUsing`).
-2. **Settings API** → open CORS for `user/*` (Fortify profile, password, 2FA), and add JSON endpoints for team members and invitations. After that: settings screens in Next.js, then delete Inertia.
-3. **`GET /teams/{team}/members`** → names in the inbox, and "assign to" a teammate.
-4. **`lang/ar`** → Arabic validation messages.
+The backend changes that §7 of this guide used to list (reset link to Next.js, settings API, members list and "assign to", `lang/ar`) were all made on `feat/P2-backend-gaps` ([issue list](../../reviews/2026-10-25-p1-p2-issues.md)), and Inertia was removed in Session 4.
