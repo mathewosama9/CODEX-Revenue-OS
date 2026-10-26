@@ -12,6 +12,7 @@ use App\Modules\Commerce\Events\StoreDisconnected;
 use App\Modules\Commerce\Jobs\BackfillStore;
 use App\Modules\Commerce\Jobs\FetchStoreProfile;
 use App\Modules\Commerce\Jobs\ReconcileStore;
+use App\Modules\Commerce\Jobs\RefreshRecentOrders;
 use App\Modules\Commerce\Jobs\RefreshStoreToken;
 use App\Modules\Commerce\Jobs\SyncCatalog;
 use App\Modules\Commerce\LiveCartStatus;
@@ -214,7 +215,7 @@ it('releases a job on any platform rate limit', function (string $job) {
     multiAs($tenantId, fn () => app()->call([$instance, 'handle']));
 
     $instance->assertReleased(42);
-})->with([ReconcileStore::class, SyncCatalog::class, BackfillStore::class]);
+})->with([ReconcileStore::class, SyncCatalog::class, BackfillStore::class, RefreshRecentOrders::class]);
 
 it('asks the store own platform about a cart before sending', function () {
     $tenantId = wooTenant();
@@ -345,7 +346,7 @@ it('fans the scheduled commerce jobs out over every commerce tenant', function (
         $event->run(app());
     }
 
-    foreach ([ReconcileStore::class, SyncCatalog::class, ReindexCatalog::class, WeeklyMeasurement::class, PurgeExpiredData::class] as $job) {
+    foreach ([ReconcileStore::class, RefreshRecentOrders::class, SyncCatalog::class, ReindexCatalog::class, WeeklyMeasurement::class, PurgeExpiredData::class] as $job) {
         foreach ([$salla, $woo] as $tenantId) {
             Queue::assertPushed($job, fn ($pushed) => $pushed->tenantId === $tenantId);
         }

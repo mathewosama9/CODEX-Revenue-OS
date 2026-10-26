@@ -7,6 +7,7 @@ use App\Modules\Commerce\Events\OrderPlaced;
 use App\Modules\Commerce\Events\StoreDisconnected;
 use App\Modules\Commerce\Jobs\BackfillStore;
 use App\Modules\Commerce\Jobs\ReconcileStore;
+use App\Modules\Commerce\Jobs\RefreshRecentOrders;
 use App\Modules\Commerce\Jobs\RefreshStoreToken;
 use App\Modules\Commerce\Jobs\SyncCatalog;
 use App\Shared\Integrations\TenantRoute;
@@ -289,6 +290,81 @@ it('finishes the whole backfill chain and marks the store reconciled (review H3)
 it('retries reconciliation after a Salla rate limit instead of failing the cycle (review H4)', function () {
     expect((new ReconcileStore(1))->tries)->toBeGreaterThan(1)
         ->and((new ReconcileStore(1))->timeout)->toBeLessThan((int) config('queue.connections.database.retry_after'));
+});
+
+/** A Salla order as a webhook sends it: with the `amounts` breakdown. */
+function sallaWebhookOrder(int $id, string $placedAt): array
+{
+    return [
+        'id' => $id,
+        'date' => ['date' => $placedAt],
+        'amounts' => ['total' => ['amount' => 300], 'shipping_cost' => ['amount' => 25]],
+        'customer' => ['mobile' => '+966512345678'],
+    ];
+}
+
+/** The same order as `GET /orders` lists it: the total only, no `amounts` (docs.salla.dev, 2026-10-27). */
+function sallaListedOrder(int $id, string $placedAt, string $status = 'under_review'): array
+{
+    return ['id' => $id, 'date' => ['date' => $placedAt], 'total' => ['amount' => 300, 'currency' => 'SAR'], 'status' => ['slug' => $status]];
+}
+
+it('keeps the shipping a webhook gave when polling lists the order with its total only', function () {
+    $tenantId = installStore();
+    $placed = now('Asia/Riyadh')->toDateTimeString(); // Salla dates are Riyadh time
+    sallaWebhook('order.created', sallaWebhookOrder(77, $placed))->assertOk();
+
+    overrideSalla(['api.salla.dev/admin/v2/orders*' => ['data' => [sallaListedOrder(77, $placed)], 'pagination' => ['totalPages' => 1]]]);
+    ReconcileStore::dispatch($tenantId);
+
+    // Shipping is subtracted from the net sale: zeroing it would inflate the report.
+    expect(DB::table('orders')->where('external_id', '77')->value('shipping_halalas'))->toBe(2500)
+        ->and(DB::table('orders')->where('external_id', '77')->value('total_halalas'))->toBe(30000);
+});
+
+it('re-reads older orders daily, so a cancellation or a whole order whose webhook was lost reaches the report', function () {
+    $tenantId = installStore();
+    $placed = now('Asia/Riyadh')->subDays(5)->toDateTimeString();
+    sallaWebhook('order.created', sallaWebhookOrder(77, $placed))->assertOk();
+    sallaWebhook('order.created', sallaWebhookOrder(78, $placed))->assertOk();
+
+    // The cancellation of 78 and all of 79 never came as webhooks.
+    overrideSalla(['api.salla.dev/admin/v2/orders*' => [
+        'data' => [sallaListedOrder(77, $placed), sallaListedOrder(78, $placed, 'canceled'), sallaListedOrder(79, $placed)],
+        'pagination' => ['totalPages' => 1],
+    ]]);
+
+    // Reconciliation looks back a few hours only, so it misses both.
+    ReconcileStore::dispatch($tenantId);
+
+    expect(DB::table('orders')->where('external_id', '78')->value('cancelled_at'))->toBeNull()
+        ->and(DB::table('orders')->where('external_id', '79')->exists())->toBeFalse();
+
+    RefreshRecentOrders::dispatch($tenantId);
+
+    $orders = DB::table('orders')->where('tenant_id', $tenantId)->get()->keyBy('external_id');
+
+    expect($orders['78']->cancelled_at)->not->toBeNull()
+        ->and($orders->has('79'))->toBeTrue()
+        ->and($orders['77']->shipping_halalas)->toBe(2500)
+        ->and(DB::table('store_connections')->value('reconciliation_gap_count'))->toBe(1);
+});
+
+it('re-reads orders in short jobs that keep one window across pages', function () {
+    $tenant = installStore();
+    $GLOBALS['orderPage'] = 0;
+    overrideSalla(['api.salla.dev/admin/v2/orders*' => function () {
+        $page = ++$GLOBALS['orderPage'];
+
+        return Http::response(['data' => [['id' => "o{$page}", 'total' => ['amount' => 100, 'currency' => 'SAR']]], 'pagination' => ['totalPages' => 12]]);
+    }]);
+    Queue::fake();
+
+    asTenant($tenant, fn () => app()->call([new RefreshRecentOrders($tenant), 'handle']));
+
+    expect(DB::table('orders')->where('tenant_id', $tenant)->count())->toBe(RefreshRecentOrders::PAGES_PER_JOB)
+        ->and((new RefreshRecentOrders(1))->timeout)->toBeLessThan((int) config('queue.connections.database.retry_after'));
+    Queue::assertPushed(RefreshRecentOrders::class, fn (RefreshRecentOrders $job) => $job->page === RefreshRecentOrders::PAGES_PER_JOB + 1 && $job->since !== null);
 });
 
 function sallaProduct(string $id, string $name, array $overrides = []): array

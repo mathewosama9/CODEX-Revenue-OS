@@ -3,6 +3,7 @@
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Modules\Commerce\Jobs\ReconcileStore;
+use App\Modules\Commerce\Jobs\RefreshRecentOrders;
 use App\Modules\Commerce\Jobs\RefreshStoreToken;
 use App\Modules\Commerce\Jobs\SyncCatalog;
 use App\Modules\Compliance\Jobs\PurgeExpiredData;
@@ -32,6 +33,13 @@ Schedule::call(function () {
     }
 })->everyTenMinutes()->name('commerce:reconcile')->withoutOverlapping()
     ->description('Poll the store platform for carts and orders whose webhooks were lost');
+
+Schedule::call(function () {
+    foreach (TenantRoute::commerceTenants() as $tenantId) {
+        RefreshRecentOrders::dispatch($tenantId);
+    }
+})->dailyAt('02:00')->name('commerce:refresh-orders')->withoutOverlapping()
+    ->description('Re-read recent orders so a refund or cancellation whose webhook was lost still reaches the report');
 
 Schedule::call(function () {
     foreach (TenantRoute::commerceTenants() as $tenantId) {

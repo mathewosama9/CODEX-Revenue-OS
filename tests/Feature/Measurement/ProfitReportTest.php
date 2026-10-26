@@ -146,6 +146,30 @@ it('counts a discount once: inside the net sale, not again as a cost', function 
         ->and($report['incremental_profit_halalas']['per_customer']['low'])->toEqual(7200.0);
 });
 
+it('subtracts shipping and refunds from a sale, and counts a cancelled order as nothing', function (array $order, float $profit, float $revenue) {
+    $t = $this->team->id;
+
+    foreach (['b1', 'b2'] as $i => $buyer) {
+        $hash = hash('sha256', $buyer);
+        DB::table('exposures')->insert(['tenant_id' => $t, 'experiment_id' => $this->experimentId, 'subject_hash' => $hash, 'arm' => 'treatment', 'cart_id' => $i + 1, 'cart_total_halalas' => 20000, 'eligible_at' => '2026-11-01 10:00']);
+        DB::table('orders')->insert(['tenant_id' => $t, 'external_id' => "o{$i}", 'phone_hash' => $hash, 'total_halalas' => 20000, 'placed_at' => '2026-11-02', 'currency' => 'SAR'] + $order);
+    }
+
+    foreach (['n1', 'n2'] as $i => $nonBuyer) {
+        DB::table('exposures')->insert(['tenant_id' => $t, 'experiment_id' => $this->experimentId, 'subject_hash' => hash('sha256', $nonBuyer), 'arm' => 'control', 'cart_id' => $i + 10, 'cart_total_halalas' => 20000, 'eligible_at' => '2026-11-01 10:00']);
+    }
+
+    $report = profitReport();
+
+    expect($report['incremental_profit_halalas']['per_customer']['low'])->toEqual($profit)
+        ->and($report['incremental_revenue_halalas']['per_customer']['low'])->toEqual($revenue);
+})->with([
+    // (200 − 20 shipping − 50 refunded) SAR = 130 SAR net, × 40% margin = 52 SAR.
+    'partial refund' => [['shipping_halalas' => 2000, 'refunded_halalas' => 5000], 5200.0, 13000.0],
+    'full refund' => [['refunded_halalas' => 20000], 0.0, 0.0],
+    'cancelled' => [['cancelled_at' => '2026-11-03'], 0.0, 0.0],
+]);
+
 it('leaves out customers whose outcome window has not closed yet', function () {
     DB::table('exposures')->insert(['tenant_id' => $this->team->id, 'experiment_id' => $this->experimentId, 'subject_hash' => 'x', 'arm' => 'treatment', 'cart_id' => 1, 'cart_total_halalas' => 1, 'eligible_at' => '2026-11-30 10:00']);
 

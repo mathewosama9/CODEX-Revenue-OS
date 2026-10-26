@@ -4,6 +4,7 @@ use App\Enums\TeamRole;
 use App\Models\Team;
 use App\Models\User;
 use App\Modules\Commerce\Jobs\ReconcileStore;
+use App\Modules\Commerce\Jobs\RefreshRecentOrders;
 use App\Modules\Commerce\Jobs\SyncCatalog;
 use App\Modules\Commerce\Models\StoreConnection;
 use App\Modules\Commerce\PlatformRateLimited;
@@ -374,6 +375,28 @@ it('reconciles carts from the plugin and orders from the REST API', function () 
         ->and(DB::table('consent_records')->where('source', 'checkout_opt_in')->where('status', 'granted')->count())->toBe(1);
     Http::assertSent(fn (Request $request) => str_contains($request->url(), 'wc/v3/orders') && str_contains($request->url(), 'after='));
     Http::assertSent(fn (Request $request) => str_contains($request->url(), 'codex/v1/carts?') && wcSignedCorrectly($request, $secret));
+});
+
+it('re-reads older orders daily, so a refund whose webhook was lost reaches the report', function () {
+    $this->freezeTime();
+    wcConnect()->assertCreated();
+    $order = ['id' => 900, 'status' => 'completed', 'total' => '300.00', 'shipping_total' => '25.00', 'date_created_gmt' => now()->subDays(5)->utc()->format('Y-m-d\TH:i:s'), 'billing' => ['phone' => '0551234567']];
+
+    wcOverride(['shop.example.com/wp-json/wc/v3/orders*' => [$order]]);
+    Bus::dispatchSync(new RefreshRecentOrders($this->team->id));
+
+    // A partial refund changes no status, and the order is older than the reconcile lookback.
+    wcOverride(['shop.example.com/wp-json/wc/v3/orders*' => [$order + ['refunds' => [['id' => 1, 'total' => '-100.00']]]]]);
+    Bus::dispatchSync(new ReconcileStore($this->team->id));
+
+    expect(DB::table('orders')->where('external_id', '900')->value('refunded_halalas'))->toBe(0);
+
+    Bus::dispatchSync(new RefreshRecentOrders($this->team->id));
+
+    expect(DB::table('orders')->where('external_id', '900')->value('refunded_halalas'))->toBe(10000)
+        ->and(DB::table('orders')->where('external_id', '900')->value('shipping_halalas'))->toBe(2500)
+        ->and(DB::table('orders')->count())->toBe(1);
+    Http::assertSent(fn (Request $request) => str_contains($request->url(), 'wc/v3/orders') && str_contains($request->url(), 'after='.now()->subDays(30)->utc()->format('Y-m-d')));
 });
 
 it('turns a WooCommerce 429 into a platform rate limit with its Retry-After', function () {

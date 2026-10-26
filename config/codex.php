@@ -31,6 +31,11 @@ return [
         // exactly 500 halalas. [افتراض] — set after P0 interviews.
         'mde_usd_per_subject' => 5.00 / 3.75,
         'method_version' => '1.0',
+        // Commerce re-reads the orders placed this many days back once a day,
+        // so a refund or cancellation whose webhook was lost still reaches the
+        // report (RefreshRecentOrders). Must exceed outcome_window_days plus
+        // the time a return takes. [اقتراح] — match the merchants' return policies.
+        'order_refresh_days' => (int) env('CODEX_ORDER_REFRESH_DAYS', 30),
     ],
 
     /*
