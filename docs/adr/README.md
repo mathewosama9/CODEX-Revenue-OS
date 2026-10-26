@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-The status of each ADR in the plan ([09](../blueprint/09-technical-architecture.md) §9.20) after building P1 and P3.
+The status of each ADR in the plan ([09](../blueprint/09-technical-architecture.md) §9.20) after building P1, P3, the site, WooCommerce and multi-currency (2026-10-27).
 **Accepted** = signed off by the founder. **Implemented** = built as the Blueprint proposed and waiting for sign-off.
 
 | ADR | Decision | Status | In the code |
@@ -16,7 +16,10 @@ The status of each ADR in the plan ([09](../blueprint/09-technical-architecture.
 | ADR-009 | Pooled data from order outcomes only, never message text | Implemented | Arch test: Measurement never imports Messaging |
 | ADR-010 | `scheduled_actions` + SKIP LOCKED + `webhook_events` + at-most-once | Implemented | `Recovery/ScheduledActionDispatcher`, `MessageSender` |
 | ADR-011 | Commerce Adapter + internal model | Implemented | `Commerce/CommerceAdapter`, `SallaAdapter` |
-| ADR-012 | Billing: manual → Moyasar/Tap → Salla | P3 | Metering only for now |
+| [ADR-012](ADR-012-multi-currency.md) | One currency and one timezone per workspace | **Accepted** (2026-10-26) | `teams.currency`/`timezone`, `Shared/Money/Currency`, `WorkspaceLocale`, `config/currencies.php` |
 | ADR-013 | Measurement: 10% customer holdout, ITT, interval + win probability | Implemented | `Measurement/*` (metric per independent review #1) |
 | ADR-014 | Discount policy engine in code + approvals | Implemented | `Recovery/DiscountPolicy` |
 | ADR-015 | Observability + PII redaction | Partial | Logs redacted. Sentry/Nightwatch need accounts |
+| ADR-016 | Billing: manual → Moyasar/Tap → Salla | P3 | Metering only for now |
+
+**Numbering note:** the Blueprint (00, 05–10, and 14 D-T11) calls the billing decision **ADR-012**. That number went to multi-currency on 2026-10-26, so billing is **ADR-016** from now on. Read "ADR-012" in the Blueprint as ADR-016.
