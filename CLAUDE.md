@@ -15,7 +15,7 @@
 - **Sprint S0** (الأساس): Laravel 13، PostgreSQL، طبقة العزل بين التجار، وثيم البراند.
 - **P1 Backend** و**P2 الواجهة (Next.js في `web/`)** خلصوا ومدموجين في `main`. وبعدها 4 sessions صلّحت كل مشاكل المراجعة ([قائمة المشاكل](docs/reviews/2026-10-25-p1-p2-issues.md)).
 - **P3 الـAI Sales Agent** (E09/E10/E11/E12b): Claude Haiku 5.5 للإنتاج ورا `AiGateway` ([ADR-007](docs/adr/ADR-007-ai-orchestration.md))، والـPII في [ADR-008](docs/adr/ADR-008-pii-and-llm.md). Assisted بس. اتجرّب live على DeepSeek بس (تجربة)، وHaiku لسه متجربش.
-- **بعد P3 (branches متراكبة، آخرهم `feat/multi-currency`):** الموقع التسويقي + «نظرة عامة» (`docs/website/site-plan.md`)، وربط **WooCommerce** للتجربة + plugin «CODEX Connector» (`docs/integrations/woocommerce-connector.md`)، و**تعدد العملات** (كل عملات الوطن العربي + الدولار، عملة ومنطقة زمنية لكل مساحة، [ADR-012](docs/adr/ADR-012-multi-currency.md)). متجر المؤسس rahaf.shop (جنيه) مربوط محليًا للتجربة.
+- **بعد P3 (مدموج في `main`):** الموقع التسويقي + «نظرة عامة» (`docs/website/site-plan.md`)، وربط **WooCommerce** للتجربة + plugin «CODEX Connector» (`docs/integrations/woocommerce-connector.md`)، و**تعدد العملات** (كل عملات الوطن العربي + الدولار، عملة ومنطقة زمنية لكل مساحة، [ADR-012](docs/adr/ADR-012-multi-currency.md)). متجر المؤسس rahaf.shop (جنيه) مربوط محليًا للتجربة.
 - **Gate 0** لسه قايمة: مفيش تاجر حقيقي يتربط قبل ما ≥5 يدفعوا Proof Pilot.
 
 ## Critical Rules (بالنص من البرومبت الأصلي)
