@@ -96,6 +96,9 @@ final class SallaPayloadMapper
             items: array_map(fn (array $item) => $this->lineItem($item), $this->list(Arr::get($order, 'items'))),
             cancelled: in_array($status, ['canceled', 'cancelled'], true),
             refundedHalalas: $this->halalas(Arr::get($order, 'amounts.refunded') ?? Arr::get($order, 'refund_amount')),
+            // `GET /orders` sends `total` only, no `amounts` (docs.salla.dev, 2026-10-27). Webhooks are read
+            // as sending the full breakdown [افتراض] until the live spike.
+            breakdownKnown: is_array(Arr::get($order, 'amounts')),
         );
     }
 

@@ -117,13 +117,14 @@ class CommerceRecorder
             $isNew = ! $order->exists;
             $wasCancelled = $order->cancelled_at !== null;
             $previousRefund = $order->refunded_halalas ?? 0;
+            $keepBreakdown = ! $isNew && ! $data->breakdownKnown;
 
             $order->fill([
                 'customer_id' => $customer->id ?? $order->customer_id,
                 'phone_hash' => $customer->phone_hash ?? $order->phone_hash,
                 'total_halalas' => $data->totalHalalas,
-                'discount_halalas' => $data->discountHalalas,
-                'shipping_halalas' => $data->shippingHalalas,
+                'discount_halalas' => $keepBreakdown ? $order->discount_halalas : $data->discountHalalas,
+                'shipping_halalas' => $keepBreakdown ? $order->shipping_halalas : $data->shippingHalalas,
                 'refunded_halalas' => max($previousRefund, $data->refundedHalalas),
                 'currency' => $data->currency,
                 'status' => $data->status,
