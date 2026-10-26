@@ -39,7 +39,7 @@ Responses: `200` accepted (also for a duplicate `X-Codex-Event-Id`), `401` bad/m
 |---|---|---|
 | `cart.updated` | a **Cart** (§5). Reconciliation also reads carts from `GET /carts`; both paths record the consent box before the cart (`WooCheckoutConsent`) | `recordAbandonedCart`; if `consent` is true and `phone` is set, grant WhatsApp marketing consent (source `checkout_opt_in`, evidence: `consent_text`, `consent_text_version`) |
 | `cart.purchased` | `{ "id": "c_…", "order_id": "789" }`, sent when the linked order is **paid** (`woocommerce_payment_complete`, or status processing/completed, e.g. cash on delivery), not when it is placed: a customer who leaves at the payment page can still be reminded | `markCartPurchased` |
-| `order.created`, `order.updated` | `{ "id": "789" }` | fetch `GET wc/v3/orders/789`, then `recordOrder` |
+| `order.created`, `order.updated` | `{ "id": "789" }`. `order.updated` is sent on a status change and, from plugin 1.1.1, on every refund (`woocommerce_order_refunded`): a partial refund leaves the status alone | fetch `GET wc/v3/orders/789`, then `recordOrder` (refunds come from the order's `refunds`) |
 | `product.updated` | `{ "id": "123" }` | fetch `GET wc/v3/products/123` (+ variations), then `recordProduct` |
 | `product.deleted` | `{ "id": "123" }` | `removeProduct` |
 | `connector.ping` | `{ "woocommerce_version": "9.x", "checkout": "classic" \| "blocks", "currency": "EGP", "price_decimals": 2, "timezone": "Africa/Cairo" }` (v1.1 adds `price_decimals` and `timezone` = `wp_timezone_string()`, which can be an offset like `+02:00`) | update `last_webhook_at`; the plugin's "Test connection" button |
@@ -94,6 +94,7 @@ Mapping to `CartData`: `externalId = id`, `customer = {externalId: customer_id, 
 ## 7. Known limits (v1.1)
 - Unticking the box after a `cart.updated` is not sent to us: the plugin stops returning the cart (404, so no reminder for it), but the earlier consent grant stays in our records. v1.1: a `consent.withdrawn` event.
 - On Blocks checkout the box is registered with `location: contact`, which WooCommerce may pre-fill for returning signed-in customers; check on the live site, else move it to the order location.
+- A lost `order.updated` (refund or cancellation) on an order older than the reconcile lookback is picked up by the daily `RefreshRecentOrders`, which re-reads the orders placed in the last `codex.measurement.order_refresh_days` (30) days. Before plugin 1.1.1, partial refunds reached us only that way.
 - Revoked REST keys make the sync jobs fail every 10 minutes; there is no "needs re-connect" state for WooCommerce yet.
 - The plugin keeps carts (with phone, for consented ones) on the merchant's site for 30 days; our data-deletion request does not reach them. For the lawyer.
 - **Phones in local format are read as Saudi** (plugin `normalize_phone` and our `PhoneNumber`): an Egyptian customer typing `010…` without `+20` is dropped (no phone, so no reminder). Until the country comes from the store (WooCommerce base country), Egyptian and other non-Saudi stores need the international format at checkout.

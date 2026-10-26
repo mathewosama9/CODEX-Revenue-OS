@@ -3,7 +3,7 @@
  * Plugin Name:          CODEX Connector
  * Plugin URI:           https://codex.sa/
  * Description:          Connects your WooCommerce store to CODEX: captures abandoned carts at checkout (only with the customer's WhatsApp consent) and keeps CODEX in sync with orders and products.
- * Version:              1.1.0
+ * Version:              1.1.1
  * Requires at least:    6.0
  * Requires PHP:         7.4
  * Requires Plugins:     woocommerce
@@ -20,7 +20,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'CODEX_CONNECTOR_VERSION', '1.1.0' );
+define( 'CODEX_CONNECTOR_VERSION', '1.1.1' );
 define( 'CODEX_CONNECTOR_DB_VERSION', '1' );
 define( 'CODEX_CONNECTOR_FILE', __FILE__ );
 define( 'CODEX_CONNECTOR_DIR', plugin_dir_path( __FILE__ ) );

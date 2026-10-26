@@ -26,6 +26,8 @@ final class Codex_Connector_Events {
 		// Orders.
 		add_action( 'woocommerce_new_order', array( __CLASS__, 'on_new_order' ), 20, 1 );
 		add_action( 'woocommerce_order_status_changed', array( __CLASS__, 'on_order_status_changed' ), 20, 1 );
+		// A partial refund leaves the status alone, so status_changed alone would miss it.
+		add_action( 'woocommerce_order_refunded', array( __CLASS__, 'on_order_status_changed' ), 20, 1 );
 
 		// Products.
 		add_action( 'woocommerce_new_product', array( __CLASS__, 'on_product_saved' ), 20, 1 );
