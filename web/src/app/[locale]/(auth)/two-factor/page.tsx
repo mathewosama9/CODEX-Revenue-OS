@@ -42,7 +42,7 @@ export default function TwoFactorPage() {
             }
 
             await afterSignIn(client);
-            router.replace(href(''));
+            router.replace(href('/workspaces'));
         });
     };
 

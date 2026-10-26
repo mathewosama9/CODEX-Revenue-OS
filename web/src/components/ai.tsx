@@ -34,7 +34,7 @@ export function reasonLabel(t: Dictionary, reason: string | null): string {
  */
 export function DraftCard({ draft, onDone }: { draft: ReplyDraft; onDone: () => void }) {
     const { t, locale } = useI18n();
-    const { path, can } = useTeam();
+    const { path, can, timezone } = useTeam();
     const [editing, setEditing] = useState(false);
     const [text, setText] = useState(draft.body);
     const [notice, setNotice] = useState<string | null>(null);
@@ -62,7 +62,7 @@ export function DraftCard({ draft, onDone }: { draft: ReplyDraft; onDone: () => 
                     {t.ai.draftTitle}
                 </span>
                 <span>
-                    {t.ai.draftStatus[draft.status] ?? draft.status} · <time dateTime={draft.at}>{formatDateTime(draft.at, locale)}</time>
+                    {t.ai.draftStatus[draft.status] ?? draft.status} · <time dateTime={draft.at}>{formatDateTime(draft.at, locale, timezone)}</time>
                 </span>
             </div>
 
@@ -123,7 +123,7 @@ export function DraftCard({ draft, onDone }: { draft: ReplyDraft; onDone: () => 
  */
 export function AiPanel({ conversation }: { conversation: Conversation }) {
     const { t, locale } = useI18n();
-    const { path, slug } = useTeam();
+    const { path, slug, timezone } = useTeam();
     const client = useQueryClient();
     const key = [slug, 'conversation-ai', conversation.id];
 
@@ -220,7 +220,7 @@ export function AiPanel({ conversation }: { conversation: Conversation }) {
                                                         </span>
                                                     )}
                                                     <time className="text-[11px] text-muted-foreground" dateTime={run.at}>
-                                                        {formatDateTime(run.at, locale)}
+                                                        {formatDateTime(run.at, locale, timezone)}
                                                     </time>
                                                 </li>
                                             );

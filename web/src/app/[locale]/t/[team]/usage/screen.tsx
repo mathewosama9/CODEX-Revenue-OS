@@ -13,18 +13,18 @@ import { useI18n } from '@/i18n';
 import { getData, request } from '@/lib/api';
 import { saveBlob } from '@/lib/download';
 import { useTeam } from '@/lib/session';
-import { riyadhToday } from '@/lib/time';
+import { workspaceToday } from '@/lib/time';
 import type { Usage } from '@/lib/types';
 
-// The merchant's month (Asia/Riyadh), like UsageMeter on the server (review L3).
-const thisMonth = () => riyadhToday().slice(0, 7);
+// The merchant's month in the workspace timezone, like UsageMeter on the server (review L3).
+const thisMonth = (timeZone: string) => workspaceToday(timeZone).slice(0, 7);
 const validMonth = (month: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
 const count = new Intl.NumberFormat('en-US');
 
 export default function UsagePage() {
     const { t } = useI18n();
-    const { path, slug } = useTeam();
-    const [month, setMonth] = useState(thisMonth);
+    const { path, slug, timezone } = useTeam();
+    const [month, setMonth] = useState(() => thisMonth(timezone));
     const [downloading, setDownloading] = useState(false);
     const [downloadFailed, setDownloadFailed] = useState(false);
 

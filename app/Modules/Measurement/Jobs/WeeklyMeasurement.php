@@ -7,7 +7,6 @@ use App\Modules\Measurement\ProfitReport;
 use App\Modules\Measurement\ReportPeriod;
 use App\Modules\Measurement\SampleRatioCheck;
 use App\Shared\Tenancy\TenantAware;
-use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -25,9 +24,8 @@ class WeeklyMeasurement implements ShouldQueue
     {
         $srm->run();
 
-        // The 28 whole Riyadh days before today (review H6).
-        $yesterday = CarbonImmutable::now(ReportPeriod::TIMEZONE)->subDay()->toDateString();
-        $period = ReportPeriod::days(CarbonImmutable::parse($yesterday)->subDays(27)->toDateString(), $yesterday);
+        // The 28 whole local days before today (review H6, ADR-012).
+        $period = ReportPeriod::daysBeforeToday(28);
 
         ProfitReportSnapshot::create([
             'period_start' => ReportPeriod::firstDay($period->start),

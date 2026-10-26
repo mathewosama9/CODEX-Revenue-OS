@@ -6,14 +6,15 @@ use App\Shared\Arabic\ArabicText;
 use Stringable;
 
 /**
- * A phone number normalized to E.164. Saudi local formats (05…, 5…, 9665…)
- * are expanded to +9665…; anything else must already carry a country code.
+ * A phone number normalized to E.164. Local formats are read in the given
+ * country (the order's billing country, ADR-012) or, by default, Saudi
+ * (05…, 5…, 9665… → +9665…); anything else must carry a country code.
  */
 final class PhoneNumber implements Stringable
 {
     private function __construct(public readonly string $e164) {}
 
-    public static function tryParse(?string $raw): ?self
+    public static function tryParse(?string $raw, ?string $country = null): ?self
     {
         if ($raw === null) {
             return null;
@@ -28,7 +29,10 @@ final class PhoneNumber implements Stringable
             $hasPlus = true;
         }
 
-        if (! $hasPlus) {
+        // An unknown or non-Arab country ("US", "") keeps the Saudi reading, as before ADR-012.
+        if (! $hasPlus && $country !== null && strtoupper($country) !== 'SA' && CallingCode::readsLocal($country)) {
+            $digits = CallingCode::localToInternational($digits, $country) ?? '';
+        } elseif (! $hasPlus) {
             $digits = match (true) {
                 (bool) preg_match('/^05\d{8}$/', $digits) => '966'.substr($digits, 1),
                 (bool) preg_match('/^5\d{8}$/', $digits) => '966'.$digits,

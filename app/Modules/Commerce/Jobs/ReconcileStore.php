@@ -2,12 +2,12 @@
 
 namespace App\Modules\Commerce\Jobs;
 
-use App\Modules\Commerce\CommerceAdapter;
+use App\Modules\Commerce\CommerceAdapters;
 use App\Modules\Commerce\CommerceRecorder;
 use App\Modules\Commerce\DiscoveredBy;
 use App\Modules\Commerce\Models\Category;
 use App\Modules\Commerce\Models\StoreConnection;
-use App\Modules\Commerce\Salla\SallaRateLimited;
+use App\Modules\Commerce\PlatformRateLimited;
 use App\Modules\Commerce\StoreStatus;
 use App\Shared\Tenancy\TenantAware;
 use Illuminate\Bus\Queueable;
@@ -47,13 +47,15 @@ class ReconcileStore implements ShouldBeUnique, ShouldQueue
         return (string) $this->tenantId;
     }
 
-    public function handle(CommerceAdapter $adapter, CommerceRecorder $recorder): void
+    public function handle(CommerceAdapters $adapters, CommerceRecorder $recorder): void
     {
         $store = StoreConnection::query()->where('status', StoreStatus::Active)->first();
 
         if ($store === null) {
             return;
         }
+
+        $adapter = $adapters->for($store);
 
         $since = $store->last_reconciled_at ?? now()->subMinutes(self::MAX_LOOKBACK_MINUTES);
         $minutes = (int) min(self::MAX_LOOKBACK_MINUTES, $since->diffInMinutes(now()) + self::OVERLAP_MINUTES);
@@ -75,7 +77,7 @@ class ReconcileStore implements ShouldBeUnique, ShouldQueue
             foreach ($adapter->ordersSince($store, $startedAt->subMinutes($minutes)) as $order) {
                 $gaps += $recorder->recordOrder($order) ? 1 : 0;
             }
-        } catch (SallaRateLimited $exception) {
+        } catch (PlatformRateLimited $exception) {
             $this->release($exception->retryAfterSeconds);
 
             return;

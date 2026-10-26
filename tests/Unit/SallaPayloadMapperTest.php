@@ -2,7 +2,13 @@
 
 use App\Modules\Commerce\Salla\SallaPayloadMapper;
 use App\Modules\Commerce\Salla\SallaTokens;
+use App\Shared\Money\Currencies;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Log;
+use Tests\TestCase;
+
+// Booted for config/currencies.php; no database.
+uses(TestCase::class);
 
 it('reads the checkout link under both field names', function () {
     $mapper = new SallaPayloadMapper;
@@ -78,3 +84,24 @@ it('reads token expiry as a timestamp or as seconds', function () {
 it('refuses a token payload without tokens', function () {
     SallaTokens::fromResponse(['expires_in' => 10]);
 })->throws(InvalidArgumentException::class);
+
+it('reads amounts in the workspace currency, three decimals for KWD', function () {
+    $mapper = (new SallaPayloadMapper)->withCurrency(Currencies::get('KWD'));
+
+    $order = $mapper->order(['id' => 1, 'amounts' => ['total' => ['amount' => 12.345, 'currency' => 'KWD'], 'shipping_cost' => '1.5']]);
+
+    expect($order->totalHalalas)->toBe(12345)
+        ->and($order->shippingHalalas)->toBe(1500)
+        ->and($order->currency)->toBe('KWD')
+        ->and((new SallaPayloadMapper)->withCurrency(Currencies::get('EGP'))->cart(['id' => 1, 'total' => '345.50'])->totalHalalas)->toBe(34550);
+});
+
+it('logs an amount in another currency and still stores it as the workspace currency', function () {
+    Log::spy();
+
+    $cart = (new SallaPayloadMapper)->withCurrency(Currencies::get('SAR'))->cart(['id' => 1, 'total' => ['amount' => 100, 'currency' => 'USD']]);
+
+    expect($cart->currency)->toBe('SAR')
+        ->and($cart->totalHalalas)->toBe(10000);
+    Log::shouldHaveReceived('warning')->once();
+});

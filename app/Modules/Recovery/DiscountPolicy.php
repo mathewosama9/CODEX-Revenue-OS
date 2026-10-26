@@ -9,6 +9,7 @@ use App\Modules\Measurement\CostLedger;
 use App\Modules\Measurement\MarginLookup;
 use App\Modules\Recovery\Models\RecoverySettings;
 use App\Modules\Recovery\Models\ScheduledAction;
+use App\Shared\Tenancy\WorkspaceLocale;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -29,6 +30,7 @@ class DiscountPolicy
         private readonly MarginLookup $margins,
         private readonly Commerce $commerce,
         private readonly CostLedger $ledger,
+        private readonly WorkspaceLocale $locale,
     ) {}
 
     public function decide(RecoverySettings $settings, CartSnapshot $cart, int $step): DiscountDecision
@@ -89,6 +91,8 @@ class DiscountPolicy
      * A hard monthly cap (Rule 9). Every discount message sent this month
      * reserves its full expected value, because any of them may still be used;
      * booked redemptions count when they are higher. No budget, no discounts.
+     * Amounts are minor units of the workspace currency; the month is the
+     * workspace's local calendar month (ADR-012).
      */
     public function coversBudget(RecoverySettings $settings, CartSnapshot $cart, int $percent): bool
     {
@@ -99,14 +103,14 @@ class DiscountPolicy
             return false;
         }
 
-        $monthStart = CarbonImmutable::now('Asia/Riyadh')->startOfMonth()->utc();
+        $monthStart = CarbonImmutable::now($this->locale->timezone())->startOfMonth()->utc();
 
         $reserved = (int) ScheduledAction::query()
             ->where('status', ActionStatus::Done)
             ->where('updated_at', '>=', $monthStart)
             ->sum(DB::raw("COALESCE((result->>'discount_reserved_halalas')::bigint, 0)"));
 
-        $booked = intdiv($this->ledger->spentMicros(CostKind::Discount, $monthStart), 10_000);
+        $booked = intdiv($this->ledger->spentMicros(CostKind::Discount, $monthStart), $this->locale->currency()->microsPerMinor());
 
         return max($reserved, $booked) + $expectedHalalas <= $budget;
     }

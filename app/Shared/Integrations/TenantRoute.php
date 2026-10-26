@@ -16,6 +16,12 @@ class TenantRoute extends Model
 
     public const META = 'meta';
 
+    /** WordPress + WooCommerce through the CODEX Connector plugin (trials; docs/integrations/woocommerce-connector.md). */
+    public const WOOCOMMERCE = 'woocommerce';
+
+    /** Every commerce platform a store can come from; the scheduled commerce jobs loop over these. */
+    public const COMMERCE = [self::SALLA, self::WOOCOMMERCE];
+
     protected $guarded = ['id'];
 
     public static function tenantFor(string $provider, string|int $externalId): ?int
@@ -41,5 +47,16 @@ class TenantRoute extends Model
     {
         /** @var list<int> */
         return static::query()->where('provider', $provider)->distinct()->pluck('tenant_id')->all();
+    }
+
+    /**
+     * Tenants with a store on any commerce platform.
+     *
+     * @return list<int>
+     */
+    public static function commerceTenants(): array
+    {
+        /** @var list<int> */
+        return static::query()->whereIn('provider', self::COMMERCE)->distinct()->pluck('tenant_id')->all();
     }
 }

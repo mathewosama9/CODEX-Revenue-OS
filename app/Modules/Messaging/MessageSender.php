@@ -8,6 +8,7 @@ use App\Modules\Messaging\Meta\MetaGraphClient;
 use App\Modules\Messaging\Models\Message;
 use App\Modules\Messaging\Models\MessageTemplate;
 use App\Modules\Messaging\Models\WhatsAppNumber;
+use App\Shared\Phone\CallingCode;
 use App\Shared\Phone\PhoneNumber;
 use App\Shared\Phone\SubjectHasher;
 use App\Shared\Tenancy\TenantContext;
@@ -65,7 +66,7 @@ class MessageSender
                 'template_name' => $template->name,
                 'category' => 'marketing',
                 'status' => MessageStatus::Sending,
-                'context' => $context,
+                'context' => $this->withRecipientCountry($context, $to),
             ]));
         } catch (UniqueConstraintViolationException) {
             return $this->previousOutcome($idempotencyKey);
@@ -145,7 +146,7 @@ class MessageSender
             'category' => 'service',
             'status' => MessageStatus::Sending,
             'body' => $text,
-            'context' => $context,
+            'context' => $this->withRecipientCountry($context, $to),
         ]);
 
         try {
@@ -202,5 +203,17 @@ class MessageSender
         }
 
         return ['name' => $template->name, 'language' => ['code' => $template->language], 'components' => $components];
+    }
+
+    /**
+     * The recipient's country, not the number: Meta prices a delivered
+     * message by it (CostLedger, ADR-012).
+     *
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    private function withRecipientCountry(array $context, PhoneNumber $to): array
+    {
+        return $context + array_filter(['recipient_country' => CallingCode::country($to)]);
     }
 }

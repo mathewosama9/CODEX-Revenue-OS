@@ -74,7 +74,7 @@ final class CatalogIndexer
         $toEmbed = [];
 
         foreach ($products as $product) {
-            $text = ArabicText::normalize(ArabicText::withoutArabicPunctuation(self::document($product)));
+            $text = ArabicText::normalize(self::document($product));
             $hash = hash('sha256', $text);
             $entry = ProductSearchEntry::query()->firstOrNew(['product_external_id' => $product->externalId]);
 

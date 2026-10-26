@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Teams;
 
+use App\Models\User;
 use App\Rules\ValidTeamInvitation;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -15,8 +16,11 @@ class RespondToTeamInvitationRequest extends FormRequest
      */
     public function rules(): array
     {
+        // Invitations are for merchant users; a staff admin is never one.
+        $user = $this->user();
+
         return [
-            'invitation' => ['required', new ValidTeamInvitation($this->user())],
+            'invitation' => ['required', new ValidTeamInvitation($user instanceof User ? $user : null)],
         ];
     }
 

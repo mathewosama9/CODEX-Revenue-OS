@@ -37,6 +37,7 @@ class BookDeliveryCost
                 $event->pricingCategory,
                 $event->billable,
                 $message->delivered_at,
+                is_string($country = $message->context['recipient_country'] ?? null) ? $country : null,
             );
         });
     }

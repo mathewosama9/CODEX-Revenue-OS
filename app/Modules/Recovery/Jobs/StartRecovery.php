@@ -10,6 +10,7 @@ use App\Modules\Compliance\AuditLogger;
 use App\Modules\Compliance\Consent\ConsentGate;
 use App\Modules\Compliance\QuietHours;
 use App\Modules\Measurement\Arm;
+use App\Modules\Measurement\CostLedger;
 use App\Modules\Measurement\ExperimentAssigner;
 use App\Modules\Measurement\ExposureLog;
 use App\Modules\Measurement\MarginLookup;
@@ -20,6 +21,7 @@ use App\Modules\Recovery\Models\RecoverySettings;
 use App\Modules\Recovery\Models\ScheduledAction;
 use App\Modules\Recovery\SequenceStatus;
 use App\Shared\Tenancy\TenantAware;
+use App\Shared\Tenancy\WorkspaceLocale;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -40,8 +42,6 @@ class StartRecovery implements ShouldQueue
     /** Suppress a cart whose expected margin is under this multiple of the message cost. */
     private const VALUE_TO_COST_MULTIPLE = 5;
 
-    private const MARKETING_MESSAGE_HALALAS = 22;
-
     public function __construct(public int $tenantId, public int $cartId) {}
 
     public function handle(
@@ -53,6 +53,8 @@ class StartRecovery implements ShouldQueue
         MarginLookup $margins,
         QuietHours $quietHours,
         AuditLogger $audit,
+        CostLedger $ledger,
+        WorkspaceLocale $locale,
     ): void {
         if (RecoverySequence::query()->where('cart_id', $this->cartId)->exists()) {
             return;
@@ -91,7 +93,7 @@ class StartRecovery implements ShouldQueue
         $reason = match (true) {
             $this->recentlySequenced($subjectHash, $settings->frequency_days) => 'frequency_cap',
             $cart->totalHalalas < $settings->min_cart_halalas => 'below_min_value',
-            ! $this->worthTheCost($cart, $settings, $margins) => 'not_worth_cost',
+            ! $this->worthTheCost($cart, $settings, $margins, $this->messageCostMinor($cart, $ledger, $locale)) => 'not_worth_cost',
             default => null,
         };
 
@@ -144,10 +146,22 @@ class StartRecovery implements ShouldQueue
     }
 
     /**
+     * One marketing message to this cart's phone, in minor units of the
+     * workspace currency, rounded up (ADR-012): 0.216 SAR → 22 halalas.
+     */
+    private function messageCostMinor(CartSnapshot $cart, CostLedger $ledger, WorkspaceLocale $locale): int
+    {
+        $micros = $ledger->messageCostMicros($cart->phone);
+        $perMinor = $locale->currency()->microsPerMinor();
+
+        return intdiv($micros + $perMinor - 1, $perMinor);
+    }
+
+    /**
      * Rule-based scoring (spine §3.3 #1–2): is the cart's expected margin worth
      * the messages we would pay Meta for?
      */
-    private function worthTheCost(CartSnapshot $cart, RecoverySettings $settings, MarginLookup $margins): bool
+    private function worthTheCost(CartSnapshot $cart, RecoverySettings $settings, MarginLookup $margins, int $messageCostMinor): bool
     {
         $marginHalalas = 0;
 
@@ -159,7 +173,7 @@ class StartRecovery implements ShouldQueue
             $marginHalalas = $cart->totalHalalas * $margins->marginBps(null) / 10_000;
         }
 
-        return $marginHalalas >= $settings->max_messages * self::MARKETING_MESSAGE_HALALAS * self::VALUE_TO_COST_MULTIPLE;
+        return $marginHalalas >= $settings->max_messages * $messageCostMinor * self::VALUE_TO_COST_MULTIPLE;
     }
 
     private function record(CartSnapshot $cart, ?Arm $arm, SequenceStatus $status, ?string $reason, AuditLogger $audit): ?RecoverySequence

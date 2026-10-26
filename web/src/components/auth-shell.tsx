@@ -16,7 +16,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         if (me) {
-            router.replace(href(''));
+            router.replace(href('/workspaces'));
         }
     }, [me, router, href]);
 
